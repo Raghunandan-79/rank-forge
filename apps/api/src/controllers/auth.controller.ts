@@ -5,7 +5,7 @@ import {
   loginService,
   signupService,
 } from "../services/auth.service";
-import { createSession } from "../utils/session";
+import { createSession, deleteSession } from "../utils/session";
 
 export async function signupController(req: Request, res: Response) {
   const parsed = signupSchema.safeParse(req.body);
@@ -91,5 +91,32 @@ export async function meController(req: Request, res: Response) {
     return res.status(500).json({
       error: "Unable to fetch user",
     });
+  }
+}
+
+export async function logoutController(req: Request, res: Response) {
+  try {
+    const sessionId = req.cookies.session_id;
+
+    if (sessionId) {
+      await deleteSession(sessionId);
+    }
+
+    res.clearCookie("session_id", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
+
+    return res.status(200).json({
+      message: "Logout successfull",
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+
+    return res.status(500).json({
+      errro: "Unable to logout"
+    })
   }
 }

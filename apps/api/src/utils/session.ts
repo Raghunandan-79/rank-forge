@@ -18,3 +18,9 @@ export async function createSession(userId: string) {
 
     return sessionId;
 }
+
+export async function deleteSession(sessionId: string) {
+    const sessionKey = `session:${sessionId}`;
+
+    await redis.del(sessionKey);
+}
