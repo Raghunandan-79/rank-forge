@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import { loginSchema, signupSchema } from "../schemas/schemas";
-import { loginService, signupService } from "../services/auth.service";
+import {
+  getMeService,
+  loginService,
+  signupService,
+} from "../services/auth.service";
 import { createSession } from "../utils/session";
 
 export async function signupController(req: Request, res: Response) {
@@ -51,7 +55,7 @@ export async function loginController(req: Request, res: Response) {
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/",
-    })
+    });
 
     res.status(200).json({
       message: "Login successfull",
@@ -62,6 +66,30 @@ export async function loginController(req: Request, res: Response) {
 
     return res.status(401).json({
       error: "Invalid credentials",
+    });
+  }
+}
+
+export async function meController(req: Request, res: Response) {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    const user = await getMeService(userId);
+
+    return res.status(200).json({
+      user,
+    });
+  } catch (error) {
+    console.error("Get me error:", error);
+
+    return res.status(500).json({
+      error: "Unable to fetch user",
     });
   }
 }
