@@ -1,5 +1,6 @@
 import { prismaClient, ProgrammingLanguage } from "@repo/db/client";
 import { AppError } from "../utils/app-error";
+import { submissionQueue } from "../queues/submission.queue";
 
 export async function createSubmissionService(
   userId: string,
@@ -28,6 +29,10 @@ export async function createSubmissionService(
       language,
     },
   });
+
+  await submissionQueue.add("judge-submission", {
+    submissionId: submission.id,
+  })
 
   return submission;
 }
