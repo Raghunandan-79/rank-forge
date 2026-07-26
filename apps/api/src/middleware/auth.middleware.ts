@@ -23,9 +23,17 @@ export async function authMiddleware(
     });
   }
 
-  const session: SessionData = JSON.parse(sessionData);
+  let session: SessionData;
+  try {
+    session = JSON.parse(sessionData);
+  } catch {
+    return res.status(401).json({
+      error: "Unauthorized",
+    });
+  }
 
   req.userId = session.userId;
+  req.csrfToken = session.csrfToken;
 
   next();
 }
