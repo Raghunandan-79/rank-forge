@@ -12,11 +12,37 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  USER
+  PROBLEM_SETTER
+  ADMIN
+}
+
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  email        String   @unique
+  id           String @id @default(cuid())
+  username     String @unique
+  email        String @unique
   passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  role UserRole @default(USER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Problem {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  description String
+  difficulty  Difficulty
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

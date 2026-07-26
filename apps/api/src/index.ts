@@ -6,6 +6,7 @@ import { redis } from "./config/redis";
 import helmet from "helmet";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { notFoundMiddleware } from "./middleware/not-found.middleware";
+import problemRouter from "./routes/problem.route";
 
 const app = express();
 app.disable("x-powered-by");
@@ -19,12 +20,15 @@ app.use(
   }),
 );
 
-app.use(express.json({
-  limit: "100kb",
-}));
+app.use(
+  express.json({
+    limit: "100kb",
+  }),
+);
 app.use(cookieParser());
 
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/problems", problemRouter);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
