@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { redis } from "../config/redis";
+import type { SessionData } from "../utils/session";
 
 export async function authMiddleware(
   req: Request,
@@ -14,14 +15,17 @@ export async function authMiddleware(
     });
   }
 
-  const userId = await redis.get(`session:${sessionId}`);
+  const sessionData = await redis.get(`session:${sessionId}`);
 
-  if (!userId) {
+  if (!sessionData) {
     return res.status(401).json({
       error: "Unauthorized",
     });
   }
 
-  req.userId = userId;
+  const session: SessionData = JSON.parse(sessionData);
+
+  req.userId = session.userId;
+
   next();
 }

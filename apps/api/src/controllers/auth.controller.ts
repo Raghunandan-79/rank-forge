@@ -47,9 +47,9 @@ export async function loginController(req: Request, res: Response) {
     const { email, password } = parsed.data;
 
     const user = await loginService(email, password);
-    const sesssionId = await createSession(user.id);
+    const { sessionId, csrfToken } = await createSession(user.id);
 
-    res.cookie("session_id", sesssionId, {
+    res.cookie("session_id", sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -60,6 +60,7 @@ export async function loginController(req: Request, res: Response) {
     res.status(200).json({
       message: "Login successfull",
       user,
+      csrfToken
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -116,7 +117,7 @@ export async function logoutController(req: Request, res: Response) {
     console.error("Logout error:", error);
 
     return res.status(500).json({
-      errro: "Unable to logout"
-    })
+      errro: "Unable to logout",
+    });
   }
 }
