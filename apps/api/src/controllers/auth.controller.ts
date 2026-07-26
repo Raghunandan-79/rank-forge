@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { loginSchema, signupSchema } from "../schemas/schemas";
 import {
   getMeService,
@@ -7,7 +7,11 @@ import {
 } from "../services/auth.service";
 import { createSession, deleteSession } from "../utils/session";
 
-export async function signupController(req: Request, res: Response) {
+export async function signupController(
+  req: Request, 
+  res: Response,
+  next: NextFunction
+) {
   const parsed = signupSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -21,16 +25,12 @@ export async function signupController(req: Request, res: Response) {
 
     const user = await signupService(username, email, password);
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Signup successfully",
       user,
     });
   } catch (error) {
-    console.error("Signup error:", error);
-
-    return res.status(500).json({
-      message: "Unable to signup user",
-    });
+    next(error);
   }
 }
 
@@ -71,7 +71,11 @@ export async function loginController(req: Request, res: Response) {
   }
 }
 
-export async function meController(req: Request, res: Response) {
+export async function meController(
+  req: Request, 
+  res: Response, 
+  next: NextFunction
+) {
   try {
     const userId = req.userId;
 
@@ -87,11 +91,7 @@ export async function meController(req: Request, res: Response) {
       user,
     });
   } catch (error) {
-    console.error("Get me error:", error);
-
-    return res.status(500).json({
-      error: "Unable to fetch user",
-    });
+    next(error);
   }
 }
 
