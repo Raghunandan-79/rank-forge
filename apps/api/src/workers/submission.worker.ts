@@ -5,13 +5,19 @@ import { executeCode } from "../services/code-execution.service";
 
 export const submissionWorker = new Worker(
   "submissions",
+
   async (job) => {
     const submissionId = job.data.submissionId as string;
+
+    // ------------------------------------------------
+    // Fetch submission + problem + test cases
+    // ------------------------------------------------
 
     const submission = await prismaClient.submission.findUnique({
       where: {
         id: submissionId,
       },
+
       include: {
         problem: {
           include: {
@@ -27,16 +33,23 @@ export const submissionWorker = new Worker(
 
     const totalTests = submission.problem.testCases.length;
 
+    // ------------------------------------------------
     // Metrics
+    // ------------------------------------------------
+
     let passedTests = 0;
     let totalExecutionTime = 0;
     let maxMemory = 0;
 
-    // Mark submission as processing
+    // ------------------------------------------------
+    // Mark submission PROCESSING
+    // ------------------------------------------------
+
     await prismaClient.submission.update({
       where: {
         id: submission.id,
       },
+
       data: {
         status: "PROCESSING",
         totalTests,
@@ -48,7 +61,15 @@ export const submissionWorker = new Worker(
     console.log(`Language: ${submission.language}`);
     console.log(`Test cases: ${totalTests}`);
 
+    console.log(
+      `Limits: ${submission.problem.timeLimit}s / ${submission.problem.memoryLimit}MB`,
+    );
+
     try {
+      // ------------------------------------------------
+      // Run every test case
+      // ------------------------------------------------
+
       for (const testCase of submission.problem.testCases) {
         console.log(`Running test case: ${testCase.id}`);
 
@@ -56,11 +77,18 @@ export const submissionWorker = new Worker(
           submission.sourceCode,
           submission.language,
           testCase.input,
+
+          // Per-problem limits
+          submission.problem.timeLimit,
+          submission.problem.memoryLimit,
         );
 
         console.log(`Judge0 status: ${result.status.description}`);
 
-        // Collect metrics for this execution
+        // ------------------------------------------------
+        // Collect execution metrics
+        // ------------------------------------------------
+
         if (result.time) {
           totalExecutionTime += Number(result.time);
         }
@@ -69,7 +97,10 @@ export const submissionWorker = new Worker(
           maxMemory = Math.max(maxMemory, result.memory);
         }
 
+        // ------------------------------------------------
         // Compilation Error
+        // ------------------------------------------------
+
         if (result.status.id === 6) {
           await updateFinalResult(
             submission.id,
@@ -80,10 +111,15 @@ export const submissionWorker = new Worker(
             maxMemory,
           );
 
+          console.log(`Compilation error: ${submission.id}`);
+
           return;
         }
 
+        // ------------------------------------------------
         // Time Limit Exceeded
+        // ------------------------------------------------
+
         if (result.status.id === 5) {
           await updateFinalResult(
             submission.id,
@@ -94,10 +130,23 @@ export const submissionWorker = new Worker(
             maxMemory,
           );
 
+          console.log(`Time limit exceeded: ${submission.id}`);
+
           return;
         }
 
-        // Runtime errors
+        // ------------------------------------------------
+        // Runtime Errors
+        //
+        // Judge0:
+        // 7  = Runtime Error (SIGSEGV)
+        // 8  = Runtime Error (SIGXFSZ)
+        // 9  = Runtime Error (SIGFPE)
+        // 10 = Runtime Error (SIGABRT)
+        // 11 = Runtime Error (NZEC)
+        // 12 = Runtime Error (Other)
+        // ------------------------------------------------
+
         if (result.status.id >= 7 && result.status.id <= 12) {
           await updateFinalResult(
             submission.id,
@@ -108,15 +157,24 @@ export const submissionWorker = new Worker(
             maxMemory,
           );
 
+          console.log(`Runtime error: ${submission.id}`);
+
           return;
         }
 
-        // Judge0 internal error
-        if (result.status.id === 13) {
+        // ------------------------------------------------
+        // Judge0 Internal Errors
+        // ------------------------------------------------
+
+        if (result.status.id === 13 || result.status.id === 14) {
           throw new Error(
             `Judge0 internal error: ${result.message ?? "Unknown error"}`,
           );
         }
+
+        // ------------------------------------------------
+        // We only expect Accepted at this point
+        // ------------------------------------------------
 
         if (result.status.id !== 3) {
           throw new Error(
@@ -124,10 +182,18 @@ export const submissionWorker = new Worker(
           );
         }
 
+        // ------------------------------------------------
+        // Compare output ourselves
+        // ------------------------------------------------
+
         const actualOutput = normalizeOutput(result.stdout ?? "");
+
         const expectedOutput = normalizeOutput(testCase.expectedOutput);
 
+        // ------------------------------------------------
         // Wrong Answer
+        // ------------------------------------------------
+
         if (actualOutput !== expectedOutput) {
           await updateFinalResult(
             submission.id,
@@ -143,6 +209,10 @@ export const submissionWorker = new Worker(
           return;
         }
 
+        // ------------------------------------------------
+        // Test passed
+        // ------------------------------------------------
+
         passedTests++;
 
         console.log(
@@ -150,7 +220,10 @@ export const submissionWorker = new Worker(
         );
       }
 
-      // All tests passed
+      // ------------------------------------------------
+      // Every test passed
+      // ------------------------------------------------
+
       await updateFinalResult(
         submission.id,
         "ACCEPTED",
@@ -161,11 +234,18 @@ export const submissionWorker = new Worker(
       );
 
       console.log(`Submission accepted: ${submission.id}`);
+
       console.log(`Tests: ${passedTests}/${totalTests}`);
+
       console.log(`Execution time: ${totalExecutionTime}s`);
+
       console.log(`Max memory: ${maxMemory} KB`);
     } catch (error) {
       console.error(`Error judging submission ${submission.id}:`, error);
+
+      // ------------------------------------------------
+      // Our infrastructure / Judge0 failure
+      // ------------------------------------------------
 
       await updateFinalResult(
         submission.id,
@@ -179,13 +259,19 @@ export const submissionWorker = new Worker(
       throw error;
     }
   },
+
   {
     connection: bullmqRedis,
   },
 );
 
+// ------------------------------------------------
+// Update final submission result
+// ------------------------------------------------
+
 async function updateFinalResult(
   submissionId: string,
+
   status:
     | "ACCEPTED"
     | "WRONG_ANSWER"
@@ -193,6 +279,7 @@ async function updateFinalResult(
     | "RUNTIME_ERROR"
     | "COMPILATION_ERROR"
     | "INTERNAL_ERROR",
+
   passedTests: number,
   totalTests: number,
   executionTime: number,
@@ -202,6 +289,7 @@ async function updateFinalResult(
     where: {
       id: submissionId,
     },
+
     data: {
       status,
       passedTests,
@@ -212,6 +300,10 @@ async function updateFinalResult(
   });
 }
 
+// ------------------------------------------------
+// Normalize stdout before comparing
+// ------------------------------------------------
+
 function normalizeOutput(output: string): string {
   return output
     .replace(/\r\n/g, "\n")
@@ -220,6 +312,10 @@ function normalizeOutput(output: string): string {
     .join("\n")
     .trim();
 }
+
+// ------------------------------------------------
+// BullMQ events
+// ------------------------------------------------
 
 submissionWorker.on("completed", (job) => {
   console.log(`Submission job completed: ${job.id}`);

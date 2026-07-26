@@ -57,6 +57,9 @@ model Problem {
   description String
   difficulty  Difficulty
 
+  timeLimit   Float @default(2.0)
+  memoryLimit Int   @default(256)
+
   testCases   TestCase[]
   submissions Submission[]
 
