@@ -9,11 +9,14 @@ import {
   getProblemBySlugController,
   getProblemsController,
 } from "../controllers/problem.controller";
+import { createSubmissionController } from "../controllers/submission.controller";
 
 const problemRouter = Router();
 
 problemRouter.get("/", getProblemsController);
+
 problemRouter.get("/:slug", getProblemBySlugController);
+
 problemRouter.post(
   "/",
   authMiddleware,
@@ -21,12 +24,20 @@ problemRouter.post(
   roleMiddleware([UserRole.PROBLEM_SETTER, UserRole.ADMIN]),
   createProblemController,
 );
+
 problemRouter.post(
     "/:slug/test-cases",
     authMiddleware,
     csrfMiddleware,
     roleMiddleware([UserRole.PROBLEM_SETTER, UserRole.ADMIN]),
     createTestCaseController
+)
+
+problemRouter.post(
+    "/:slug/submissions",
+    authMiddleware,
+    csrfMiddleware,
+    createSubmissionController
 )
 
 export default problemRouter;

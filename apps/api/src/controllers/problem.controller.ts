@@ -63,13 +63,19 @@ export async function getProblemBySlugController(
   try {
     const { slug } = req.params;
 
+    if (typeof slug !== "string") {
+      return res.status(400).json({
+        error: "Problem slug is required",
+      });
+    }
+
     if (!slug) {
       return res.status(400).json({
         error: "Problem slug is required",
       });
     }
 
-    const problem = await getProblemsBySlugService(slug as string);
+    const problem = await getProblemsBySlugService(slug);
 
     return res.status(200).json({
       problem,
@@ -95,6 +101,12 @@ export async function createTestCaseController(
   try {
     const { slug } = req.params;
 
+    if (typeof slug !== "string") {
+      return res.status(400).json({
+        error: "Problem slug is required",
+      });
+    }
+
     if (!slug) {
       return res.status(400).json({
         error: "Problem slug is required",
@@ -104,7 +116,7 @@ export async function createTestCaseController(
     const { input, expectedOutput, isHidden } = parsed.data;
 
     const testCase = await createTestCaseService(
-      slug as string,
+      slug,
       input,
       expectedOutput,
       isHidden,
