@@ -1,7 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
-import { createProblemSchema } from "../schemas/schemas";
+import { createProblemSchema, createTestCaseSchema } from "../schemas/schemas";
 import {
   createProblemService,
+  createTestCaseService,
   getProblemsBySlugService,
   getProblemsService,
 } from "../services/problem.service";
@@ -71,8 +72,48 @@ export async function getProblemBySlugController(
     const problem = await getProblemsBySlugService(slug as string);
 
     return res.status(200).json({
-        problem,
-    })
+      problem,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createTestCaseController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const parsed = createTestCaseSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Invalid test case data",
+    });
+  }
+
+  try {
+    const { slug } = req.params;
+
+    if (!slug) {
+      return res.status(400).json({
+        error: "Problem slug is required",
+      });
+    }
+
+    const { input, expectedOutput, isHidden } = parsed.data;
+
+    const testCase = await createTestCaseService(
+      slug as string,
+      input,
+      expectedOutput,
+      isHidden,
+    );
+
+    return res.status(201).json({
+      message: "Test case created successfully",
+      testCase,
+    });
   } catch (error) {
     next(error);
   }

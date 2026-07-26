@@ -39,3 +39,11 @@ export const createProblemSchema = z
     difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
   })
   .strict();
+
+export const createTestCaseSchema = z
+  .object({
+    input: z.string().max(100000),
+    expectedOutput: z.string().max(100000),
+    isHidden: z.boolean().default(true),
+  })
+  .strict();

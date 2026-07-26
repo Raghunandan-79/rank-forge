@@ -5,6 +5,7 @@ import { roleMiddleware } from "../middleware/role.middleware";
 import { UserRole } from "@repo/db/client";
 import {
   createProblemController,
+  createTestCaseController,
   getProblemBySlugController,
   getProblemsController,
 } from "../controllers/problem.controller";
@@ -20,5 +21,12 @@ problemRouter.post(
   roleMiddleware([UserRole.PROBLEM_SETTER, UserRole.ADMIN]),
   createProblemController,
 );
+problemRouter.post(
+    "/:slug/test-cases",
+    authMiddleware,
+    csrfMiddleware,
+    roleMiddleware([UserRole.PROBLEM_SETTER, UserRole.ADMIN]),
+    createTestCaseController
+)
 
 export default problemRouter;
