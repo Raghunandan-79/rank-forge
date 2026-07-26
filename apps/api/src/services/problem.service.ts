@@ -52,3 +52,17 @@ export async function getProblemsService() {
 
   return problems;
 }
+
+export async function getProblemsBySlugService(slug: string) {
+  const problem = await prismaClient.problem.findUnique({
+    where: {
+      slug,
+    },
+  });
+
+  if (!problem) {
+    throw new AppError("Problem not found", 404);
+  }
+
+  return problem;
+}
