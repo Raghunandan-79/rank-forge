@@ -36,6 +36,18 @@ enum Difficulty {
   HARD
 }
 
+model TestCase {
+  id             String  @id @default(cuid())
+  input          String
+  expectedOutput String
+  isHidden       Boolean @default(true)
+
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
 model Problem {
   id          String     @id @default(cuid())
   title       String
@@ -43,6 +55,8 @@ model Problem {
   description String
   difficulty  Difficulty
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  testCases TestCase[]
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
