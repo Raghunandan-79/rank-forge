@@ -1,6 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import { redis } from "../config/redis";
-import type { SessionData } from "../utils/session";
+import {
+  sessionDataSchema,
+  type SessionData,
+} from "../schemas/schemas";
 
 export async function authMiddleware(
   req: Request,
@@ -25,7 +28,8 @@ export async function authMiddleware(
 
   let session: SessionData;
   try {
-    session = JSON.parse(sessionData);
+    const parsedData = JSON.parse(sessionData);
+    session = sessionDataSchema.parse(parsedData);
   } catch {
     return res.status(401).json({
       error: "Unauthorized",
