@@ -11,7 +11,8 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@repo/db": "*",
     "express": "^5.2.1",
-    "@repo/db": "*"
+    "zod": "^4.4.3"
   }
 }
