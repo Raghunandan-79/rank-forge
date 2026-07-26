@@ -8,6 +8,7 @@ import { redis } from "./config/redis";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { notFoundMiddleware } from "./middleware/not-found.middleware";
 import problemRouter from "./routes/problem.route";
+import submissionRouter from "./routes/submission.routes";
 
 const app = express();
 app.disable("x-powered-by");
@@ -30,6 +31,7 @@ app.use(cookieParser());
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/problems", problemRouter);
+app.use("/api/v1/submissions", submissionRouter);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

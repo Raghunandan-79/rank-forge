@@ -32,7 +32,43 @@ export async function createSubmissionService(
 
   await submissionQueue.add("judge-submission", {
     submissionId: submission.id,
-  })
+  });
+
+  return submission;
+}
+
+export async function getSubmissionByIdService(
+  submissionId: string,
+  userId: string,
+) {
+  const submission = await prismaClient.submission.findFirst({
+    where: {
+      id: submissionId,
+      userId,
+    },
+    select: {
+      id: true,
+      status: true,
+      language: true,
+      executionTime: true,
+      memoryUsed: true,
+      passedTests: true,
+      totalTests: true,
+      createdAt: true,
+      updatedAt: true,
+
+      problem: {
+        select: {
+          title: true,
+          slug: true,
+        },
+      },
+    },
+  });
+
+  if (!submission) {
+    throw new Error("Submission not found");
+  }
 
   return submission;
 }

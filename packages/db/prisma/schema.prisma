@@ -90,8 +90,13 @@ model Submission {
   language   ProgrammingLanguage
   status     SubmissionStatus    @default(PENDING)
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  executionTime Float?
+  memoryUsed    Int?
+  passedTests   Int               @default(0)
+  totalTests    Int               @default(0)
+
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   problemId String
   problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)

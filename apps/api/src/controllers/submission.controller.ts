@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { createSubmissionSchema } from "../schemas/schemas";
-import { createSubmissionService } from "../services/submission.service";
+import { createSubmissionService, getSubmissionByIdService } from "../services/submission.service";
 
 export async function createSubmissionController(
   req: Request,
@@ -48,6 +48,37 @@ export async function createSubmissionController(
 
     return res.status(201).json({
       message: "Submission created successfully",
+      submission,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getSubmissionByIdController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    if (typeof id !== "string") {
+      return res.status(400).json({
+        error: "Submission ID is required",
+      });
+    }
+
+    const submission = await getSubmissionByIdService(id, userId);
+
+    return res.status(200).json({
       submission,
     });
   } catch (error) {
