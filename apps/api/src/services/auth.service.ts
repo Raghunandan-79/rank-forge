@@ -33,3 +33,31 @@ export async function signupService(
     createdAt: user.createdAt,
   };
 }
+
+export async function loginService(email: string, password: string) {
+  const existingUser = await prismaClient.user.findFirst({
+    where: {
+      email,
+    },
+  });
+
+  if (!existingUser) {
+    throw new Error("Invalid credentials");
+  }
+
+  const isPasswordValid = await bcrypt.compare(
+    password,
+    existingUser.passwordHash,
+  );
+
+  if (!isPasswordValid) {
+    throw new Error("Invalid credentials");
+  }
+
+  return {
+    id: existingUser.id,
+    username: existingUser.username,
+    email: existingUser.email,
+    createdAt: existingUser.createdAt
+  }
+}

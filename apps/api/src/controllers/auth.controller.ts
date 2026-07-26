@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import { signupSchema } from "../schemas/schemas";
-import { signupService } from "../services/auth.service";
+import { loginSchema, signupSchema } from "../schemas/schemas";
+import { loginService, signupService } from "../services/auth.service";
 
 export async function signupController(req: Request, res: Response) {
   const parsed = signupSchema.safeParse(req.body);
@@ -17,14 +17,41 @@ export async function signupController(req: Request, res: Response) {
     const user = await signupService(username, email, password);
 
     res.status(201).json({
-        message: "User signedup successfully",
-        user
-    })
+      message: "Signup successfully",
+      user,
+    });
   } catch (error) {
     console.error("Signup error:", error);
 
     return res.status(500).json({
       message: "Unable to signup user",
+    });
+  }
+}
+
+export async function loginController(req: Request, res: Response) {
+  const parsed = loginSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Invalid format",
+    });
+  }
+
+  try {
+    const { email, password } = parsed.data;
+
+    const user = await loginService(email, password);
+
+    res.status(200).json({
+      message: "Login successfull",
+      user,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+
+    return res.status(401).json({
+      error: "Invalid credentials",
     });
   }
 }
