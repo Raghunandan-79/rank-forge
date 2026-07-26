@@ -6,6 +6,7 @@
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/bun": "latest",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6"
   },
   "peerDependencies": {
@@ -14,7 +15,9 @@
   "dependencies": {
     "@repo/db": "*",
     "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
+    "ioredis": "^5.11.1",
     "zod": "^4.4.3"
   }
 }
