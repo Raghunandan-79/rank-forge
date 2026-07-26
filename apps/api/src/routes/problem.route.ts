@@ -3,9 +3,11 @@ import { authMiddleware } from "../middleware/auth.middleware";
 import { csrfMiddleware } from "../middleware/csrf.middleware";
 import { roleMiddleware } from "../middleware/role.middleware";
 import { UserRole } from "@repo/db/client";
-import { createProblemController } from "../controllers/problem.controller";
+import { createProblemController, getProblemsController } from "../controllers/problem.controller";
 
 const problemRouter = Router();
+
+problemRouter.get("/", getProblemsController);
 
 problemRouter.post(
   "/",

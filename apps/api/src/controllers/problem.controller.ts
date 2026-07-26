@@ -1,6 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import { createProblemSchema } from "../schemas/schemas";
-import { createProblemService } from "../services/problem.service";
+import {
+  createProblemService,
+  getProblemsService,
+} from "../services/problem.service";
 
 export async function createProblemController(
   req: Request,
@@ -28,6 +31,22 @@ export async function createProblemController(
     return res.status(201).json({
       message: "Problem created successfully",
       problem,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getProblemsController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const problems = await getProblemsService();
+
+    return res.status(200).json({
+      problems,
     });
   } catch (error) {
     next(error);

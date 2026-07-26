@@ -35,3 +35,20 @@ export async function createProblemService(
     createdAt: problem.createdAt,
   };
 }
+
+export async function getProblemsService() {
+  const problems = await prismaClient.problem.findMany({
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      difficulty: true,
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return problems;
+}
