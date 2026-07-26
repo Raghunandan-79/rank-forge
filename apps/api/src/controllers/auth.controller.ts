@@ -34,7 +34,11 @@ export async function signupController(
   }
 }
 
-export async function loginController(req: Request, res: Response) {
+export async function loginController(
+  req: Request, 
+  res: Response,
+  next: NextFunction
+) {
   const parsed = loginSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -63,11 +67,7 @@ export async function loginController(req: Request, res: Response) {
       csrfToken
     });
   } catch (error) {
-    console.error("Login error:", error);
-
-    return res.status(401).json({
-      error: "Invalid credentials",
-    });
+    next(error);
   }
 }
 
@@ -95,7 +95,11 @@ export async function meController(
   }
 }
 
-export async function logoutController(req: Request, res: Response) {
+export async function logoutController(
+  req: Request, 
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const sessionId = req.cookies.session_id;
 
@@ -111,13 +115,9 @@ export async function logoutController(req: Request, res: Response) {
     });
 
     return res.status(200).json({
-      message: "Logout successfull",
+      message: "Logout successful",
     });
   } catch (error) {
-    console.error("Logout error:", error);
-
-    return res.status(500).json({
-      errro: "Unable to logout",
-    });
+    next(error);
   }
 }

@@ -1,5 +1,6 @@
 import { prismaClient } from "@repo/db/client";
 import bcrypt from "bcrypt";
+import { AppError } from "../utils/app-error";
 
 export async function signupService(
   username: string,
@@ -13,7 +14,7 @@ export async function signupService(
   });
 
   if (existingUser) {
-    throw new Error("User already exists");
+    throw new AppError("User already exists", 409);
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -42,7 +43,7 @@ export async function loginService(email: string, password: string) {
   });
 
   if (!existingUser) {
-    throw new Error("Invalid credentials");
+    throw new AppError("Invalid credentials", 401);
   }
 
   const isPasswordValid = await bcrypt.compare(
@@ -51,7 +52,7 @@ export async function loginService(email: string, password: string) {
   );
 
   if (!isPasswordValid) {
-    throw new Error("Invalid credentials");
+    throw new AppError("Invalid credentials", 401);
   }
 
   return {
@@ -70,7 +71,7 @@ export async function getMeService(userId: string) {
   });
 
   if (!user) {
-    throw new Error("User not found");
+    throw new AppError("User not found", 404);
   }
 
   return {
