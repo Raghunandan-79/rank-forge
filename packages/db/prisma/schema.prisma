@@ -26,6 +26,8 @@ model User {
 
   role UserRole @default(USER)
 
+  submissions Submission[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -55,8 +57,45 @@ model Problem {
   description String
   difficulty  Difficulty
 
-  testCases TestCase[]
+  testCases   TestCase[]
+  submissions Submission[]
 
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum SubmissionStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  RUNTIME_ERROR
+  COMPILATION_ERROR
+  INTERNAL_ERROR
+}
+
+enum ProgrammingLanguage {
+  C
+  CPP
+  JAVA
+  PYTHON
+  JAVASCRIPT
+}
+
+model Submission {
+  id         String              @id @default(cuid())
+  sourceCode String
+  language   ProgrammingLanguage
+  status     SubmissionStatus    @default(PENDING)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
