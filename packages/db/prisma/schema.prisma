@@ -29,9 +29,10 @@ model User {
   submissions          Submission[]
   contestRegistrations ContestRegistration[]
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  contestScores ContestScore[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  contestScores          ContestScore[]
+  contestProblemAttempts ContestProblemAttempt[]
 }
 
 enum Difficulty {
@@ -66,9 +67,10 @@ model Problem {
   submissions     Submission[]
   contestProblems ContestProblem[]
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  contestScores ContestScore[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  contestScores          ContestScore[]
+  contestProblemAttempts ContestProblemAttempt[]
 }
 
 enum SubmissionStatus {
@@ -131,9 +133,10 @@ model Contest {
   registrations ContestRegistration[]
   submissions   Submission[]
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  contestScores ContestScore[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  contestScores          ContestScore[]
+  contestProblemAttempts ContestProblemAttempt[]
 }
 
 model ContestProblem {
@@ -185,7 +188,31 @@ model ContestScore {
 
   points Int
 
+  // Contest penalty in minutes
+  penalty Int @default(0)
+
   solvedAt DateTime @default(now())
+
+  @@unique([contestId, userId, problemId])
+  @@index([contestId, userId])
+}
+
+model ContestProblemAttempt {
+  id String @id @default(cuid())
+
+  contestId String
+  contest   Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  wrongAttempts Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([contestId, userId, problemId])
   @@index([contestId, userId])
