@@ -1,59 +1,69 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: rankforge-postgres
     environment:
-      POSTGRES_DB: rankforge
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secure_db_password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    restart: always
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    container_name: rankforge-redis
-    command: redis-server --requirepass secure_redis_password
-    ports:
-      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redisdata:/data
-    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   api:
     build:
       context: .
       dockerfile: ./apps/api/Dockerfile
-    container_name: rankforge-api
-    ports:
-      - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://admin:secure_db_password@postgres:5432/rankforge?schema=public
-      - REDIS_URL=redis://:secure_redis_password@redis:6379
-      - JUDGE0_API_URL=http://localhost:2358
-      - SESSION_SECRET=change-this-to-a-secure-random-key
-      - CORS_ORIGIN=https://your-frontend-vercel.vercel.app
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JUDGE0_API_URL: ${JUDGE0_API_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      NODE_ENV: production
+      PORT: 8000
     depends_on:
-      - postgres
-      - redis
-    restart: always
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   worker:
     build:
       context: .
       dockerfile: ./apps/api/Dockerfile.worker
-    container_name: rankforge-worker
     environment:
-      - DATABASE_URL=postgresql://admin:secure_db_password@postgres:5432/rankforge?schema=public
-      - REDIS_URL=redis://:secure_redis_password@redis:6379
-      - JUDGE0_API_URL=http://localhost:2358
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JUDGE0_API_URL: ${JUDGE0_API_URL}
+      NODE_ENV: production
     depends_on:
-      - redis
-    restart: always
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:
