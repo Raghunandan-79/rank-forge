@@ -26,7 +26,8 @@ model User {
 
   role UserRole @default(USER)
 
-  submissions Submission[]
+  submissions          Submission[]
+  contestRegistrations ContestRegistration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -60,8 +61,9 @@ model Problem {
   timeLimit   Float @default(2.0)
   memoryLimit Int   @default(256)
 
-  testCases   TestCase[]
-  submissions Submission[]
+  testCases       TestCase[]
+  submissions     Submission[]
+  contestProblems ContestProblem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -95,15 +97,66 @@ model Submission {
 
   executionTime Float?
   memoryUsed    Int?
-  passedTests   Int               @default(0)
-  totalTests    Int               @default(0)
+  passedTests   Int    @default(0)
+  totalTests    Int    @default(0)
 
-  userId    String
-  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   problemId String
   problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Contest {
+  id          String @id @default(cuid())
+  title       String
+  slug        String @unique
+  description String
+
+  startTime DateTime
+  endTime   DateTime
+
+  problems      ContestProblem[]
+  registrations ContestRegistration[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContestProblem {
+  id String @id @default(cuid())
+
+  contestId String
+  contest   Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  /// A, B, C, D...
+  index String
+
+  /// Points awarded for solving this problem.
+  points Int @default(100)
+
+  createdAt DateTime @default(now())
+
+  @@unique([contestId, problemId])
+  @@unique([contestId, index])
+}
+
+model ContestRegistration {
+  id String @id @default(cuid())
+
+  contestId String
+  contest   Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  registeredAt DateTime @default(now())
+
+  @@unique([contestId, userId])
 }
