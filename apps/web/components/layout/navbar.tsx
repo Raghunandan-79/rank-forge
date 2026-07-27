@@ -35,8 +35,8 @@ export function Navbar() {
           <nav className="flex items-center gap-4 text-sm font-medium">
             <Link
               href="/contests"
-              className={`transition-colors hover:text-foreground/80 ${
-                isLinkActive("/contests") ? "text-foreground font-semibold border-b-2 border-primary py-4 -mb-[18px]" : "text-muted-foreground"
+              className={`transition-colors hover:text-foreground/80 py-4 -mb-[18px] border-b-2 ${
+                isLinkActive("/contests") ? "text-foreground font-semibold border-primary" : "text-muted-foreground border-transparent"
               }`}
             >
               Contests
@@ -45,8 +45,8 @@ export function Navbar() {
             {user && (user.role === "ADMIN" || user.role === "PROBLEM_SETTER") && (
               <Link
                 href="/admin"
-                className={`transition-colors hover:text-foreground/80 ${
-                  isLinkActive("/admin") ? "text-foreground font-semibold border-b-2 border-primary py-4 -mb-[18px]" : "text-muted-foreground"
+                className={`transition-colors hover:text-foreground/80 py-4 -mb-[18px] border-b-2 ${
+                  isLinkActive("/admin") ? "text-foreground font-semibold border-primary" : "text-muted-foreground border-transparent"
                 }`}
               >
                 Admin Panel
