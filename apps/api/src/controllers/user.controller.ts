@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { updateUserRoleSchema } from "../schemas/schemas";
-import { getUsersService, updateUserRoleService } from "../services/user.service";
+import { deleteUserService, getUsersService, updateUserRoleService } from "../services/user.service";
 
 export async function getUsersController(
   req: Request,
@@ -43,6 +43,31 @@ export async function updateUserRoleController(
     return res.status(200).json({
       message: "User role updated successfully",
       user,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteUserController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { id } = req.params;
+    if (typeof id !== "string") {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    if (id === req.userId) {
+      return res.status(400).json({ error: "You cannot delete yourself" });
+    }
+
+    await deleteUserService(id);
+
+    return res.status(200).json({
+      message: "User deleted successfully",
     });
   } catch (error) {
     next(error);

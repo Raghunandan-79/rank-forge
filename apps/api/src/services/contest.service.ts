@@ -27,6 +27,24 @@ export async function createContestService(data: CreateContestInput) {
   });
 }
 
+export async function deleteContestService(slug: string) {
+  const contest = await prismaClient.contest.findUnique({
+    where: {
+      slug,
+    },
+  });
+
+  if (!contest) {
+    throw new Error("Contest not found");
+  }
+
+  return prismaClient.contest.delete({
+    where: {
+      slug,
+    },
+  });
+}
+
 export async function getContestsService() {
   return prismaClient.contest.findMany({
     orderBy: {

@@ -8,6 +8,7 @@ import {
 import {
   addContestProblemService,
   createContestService,
+  deleteContestService,
   getContestBySlugService,
   getContestLeaderboardService,
   getContestsService,
@@ -192,6 +193,30 @@ export async function getContestStandingsController(
     const standings = await getContestStandingsService(slug);
 
     return res.status(200).json(standings);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteContestController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { slug } = req.params;
+
+    if (typeof slug !== "string") {
+      return res.status(400).json({
+        error: "Contest slug is required",
+      });
+    }
+
+    await deleteContestService(slug);
+
+    return res.status(200).json({
+      message: "Contest deleted successfully",
+    });
   } catch (error) {
     next(error);
   }

@@ -9,6 +9,7 @@ import { roleMiddleware } from "../middleware/role.middleware";
 import {
   addContestProblemController,
   createContestController,
+  deleteContestController,
   getContestBySlugController,
   getContestLeaderboardController,
   getContestsController,
@@ -61,6 +62,14 @@ contestRouter.post(
   authMiddleware,
   csrfMiddleware,
   createContestSubmissionController,
+);
+
+contestRouter.delete(
+  "/:slug",
+  authMiddleware,
+  csrfMiddleware,
+  roleMiddleware([UserRole.ADMIN]),
+  deleteContestController,
 );
 
 export default contestRouter;

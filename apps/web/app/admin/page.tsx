@@ -9,7 +9,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Badge } from "../../components/ui/badge";
-import { Plus, Trophy, Code2, ShieldAlert, Key, FolderGit, Calendar, ArrowRight, Settings, Users } from "lucide-react";
+import { Plus, Trophy, Code2, ShieldAlert, Key, FolderGit, Calendar, ArrowRight, Settings, Users, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
@@ -168,6 +168,49 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleDeleteContest = async (slug: string) => {
+    if (!window.confirm("Are you sure you want to delete this contest? This action is permanent and will delete registrations, attempts, and scores associated with this contest.")) {
+      return;
+    }
+    try {
+      await api.delete(`/contests/${slug}`);
+      toast.success("Contest deleted successfully!");
+      setContests((prev) => prev.filter((c) => c.slug !== slug));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete contest");
+    }
+  };
+
+  const handleDeleteProblem = async (slug: string) => {
+    if (!window.confirm("Are you sure you want to delete this problem? This action is permanent and will delete all test cases and submissions associated with it.")) {
+      return;
+    }
+    try {
+      await api.delete(`/problems/${slug}`);
+      toast.success("Problem deleted successfully!");
+      setProblems((prev) => prev.filter((p) => p.slug !== slug));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete problem");
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (userId === user?.id) {
+      toast.error("You cannot delete yourself.");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to delete this user? This action is permanent and will delete all their submissions and registrations.")) {
+      return;
+    }
+    try {
+      await api.delete(`/users/${userId}`);
+      toast.success("User deleted successfully!");
+      setUsersList((prev) => prev.filter((u) => u.id !== userId));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete user");
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
@@ -264,6 +307,17 @@ export default function AdminDashboardPage() {
                                   <ArrowRight className="h-4 w-4" />
                                 </Button>
                               </Link>
+                              {user.role === "ADMIN" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                  onClick={() => handleDeleteContest(contest.slug)}
+                                  title="Delete Contest"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -325,15 +379,28 @@ export default function AdminDashboardPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Link href={`/admin/problems/${problem.slug}/test-cases`}>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
-                              >
-                                Test Cases
-                              </Button>
-                            </Link>
+                            <div className="flex items-center justify-end gap-2">
+                              <Link href={`/admin/problems/${problem.slug}/test-cases`}>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                                >
+                                  Test Cases
+                                </Button>
+                              </Link>
+                              {user.role === "ADMIN" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                  onClick={() => handleDeleteProblem(problem.slug)}
+                                  title="Delete Problem"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -371,7 +438,7 @@ export default function AdminDashboardPage() {
                         <TableHead>Username</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Current Role</TableHead>
-                        <TableHead className="text-right">Modify Role</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -412,6 +479,15 @@ export default function AdminDashboardPage() {
                                   <option value="PROBLEM_SETTER" className="bg-[#151515]">Problem Setter</option>
                                   <option value="ADMIN" className="bg-[#151515]">Admin</option>
                                 </select>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                  onClick={() => handleDeleteUser(u.id)}
+                                  title="Delete User"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             )}
                           </TableCell>

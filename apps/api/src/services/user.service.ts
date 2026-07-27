@@ -36,3 +36,17 @@ export async function updateUserRoleService(id: string, role: "USER" | "PROBLEM_
     },
   });
 }
+
+export async function deleteUserService(id: string) {
+  const user = await prismaClient.user.findUnique({
+    where: { id },
+  });
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  return prismaClient.user.delete({
+    where: { id },
+  });
+}

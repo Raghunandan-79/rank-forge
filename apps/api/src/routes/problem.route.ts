@@ -6,6 +6,7 @@ import { UserRole } from "@repo/db/client";
 import {
   createProblemController,
   createTestCaseController,
+  deleteProblemController,
   getProblemBySlugController,
   getProblemsController,
   getProblemAdminTestCasesController,
@@ -61,6 +62,14 @@ problemRouter.post(
     authMiddleware,
     csrfMiddleware,
     createSubmissionController
+)
+
+problemRouter.delete(
+    "/:slug",
+    authMiddleware,
+    csrfMiddleware,
+    roleMiddleware([UserRole.PROBLEM_SETTER, UserRole.ADMIN]),
+    deleteProblemController
 )
 
 export default problemRouter;

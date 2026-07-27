@@ -36,6 +36,24 @@ export async function createProblemService(
   };
 }
 
+export async function deleteProblemService(slug: string) {
+  const problem = await prismaClient.problem.findUnique({
+    where: {
+      slug,
+    },
+  });
+
+  if (!problem) {
+    throw new AppError("Problem not found", 404);
+  }
+
+  return prismaClient.problem.delete({
+    where: {
+      slug,
+    },
+  });
+}
+
 export async function getProblemsService() {
   const problems = await prismaClient.problem.findMany({
     select: {

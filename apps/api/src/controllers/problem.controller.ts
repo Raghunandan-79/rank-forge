@@ -3,6 +3,7 @@ import { createProblemSchema, createTestCaseSchema } from "../schemas/schemas";
 import {
   createProblemService,
   createTestCaseService,
+  deleteProblemService,
   getProblemsBySlugService,
   getProblemsService,
   getProblemAdminTestCasesService,
@@ -162,6 +163,27 @@ export async function deleteTestCaseController(
     }
     const testCase = await deleteTestCaseService(id);
     return res.status(200).json({ message: "Test case deleted successfully", testCase });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteProblemController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { slug } = req.params;
+    if (typeof slug !== "string") {
+      return res.status(400).json({ error: "Problem slug is required" });
+    }
+
+    await deleteProblemService(slug);
+
+    return res.status(200).json({
+      message: "Problem deleted successfully",
+    });
   } catch (error) {
     next(error);
   }
