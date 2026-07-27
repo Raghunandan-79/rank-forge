@@ -136,7 +136,7 @@ export const submissionWorker = new Worker(
 
           console.log(`Submission accepted: ${submission.id}`);
           console.log(`Tests: ${passedTests}/${totalTests}`);
-          console.log(`Execution time: ${totalExecutionTime}s`);
+          console.log(`Execution time: ${totalExecutionTime.toFixed(3)}s`);
           console.log(`Max memory: ${maxMemory} KB`);
         }
 

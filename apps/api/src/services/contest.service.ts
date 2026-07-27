@@ -217,112 +217,294 @@ export async function registerForContestService(
 }
 
 export async function getContestLeaderboardService(slug: string) {
-    const contest = await prismaClient.contest.findUnique({
-      where: {
-        slug,
-      },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-      },
-    });
-  
-    if (!contest) {
-      throw new Error("Contest not found");
-    }
-  
-    const leaderboardKey = `leaderboard:contest:${contest.id}`;
-  
-    // ---------------------------------------------
-    // Try Redis first
-    // ---------------------------------------------
-  
-    let redisLeaderboard = await redis.zrevrange(
+  const contest = await prismaClient.contest.findUnique({
+    where: {
+      slug,
+    },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+    },
+  });
+
+  if (!contest) {
+    throw new Error("Contest not found");
+  }
+
+  const leaderboardKey = `leaderboard:contest:${contest.id}`;
+
+  // ---------------------------------------------
+  // Try Redis first
+  // ---------------------------------------------
+
+  let redisLeaderboard = await redis.zrevrange(
+    leaderboardKey,
+    0,
+    -1,
+    "WITHSCORES",
+  );
+
+  // ---------------------------------------------
+  // Redis empty -> rebuild from PostgreSQL
+  // ---------------------------------------------
+
+  if (redisLeaderboard.length === 0) {
+    await rebuildContestLeaderboard(contest.id);
+
+    redisLeaderboard = await redis.zrevrange(
       leaderboardKey,
       0,
       -1,
       "WITHSCORES",
     );
-  
-    // ---------------------------------------------
-    // Redis empty -> rebuild from PostgreSQL
-    // ---------------------------------------------
-  
-    if (redisLeaderboard.length === 0) {
-      await rebuildContestLeaderboard(contest.id);
-  
-      redisLeaderboard = await redis.zrevrange(
-        leaderboardKey,
-        0,
-        -1,
-        "WITHSCORES",
-      );
+  }
+
+  // ---------------------------------------------
+  // Convert Redis response
+  // [userId, score, userId, score, ...]
+  // ---------------------------------------------
+
+  const entries: {
+    userId: string;
+    score: number;
+  }[] = [];
+
+  for (let i = 0; i < redisLeaderboard.length; i += 2) {
+    const userId = redisLeaderboard[i];
+    const score = redisLeaderboard[i + 1];
+
+    if (!userId || score === undefined) {
+      continue;
     }
-  
-    // ---------------------------------------------
-    // Convert Redis response
-    // [userId, score, userId, score, ...]
-    // ---------------------------------------------
-  
-    const entries: {
-      userId: string;
-      score: number;
-    }[] = [];
-  
-    for (let i = 0; i < redisLeaderboard.length; i += 2) {
-      const userId = redisLeaderboard[i];
-      const score = redisLeaderboard[i + 1];
-  
-      if (!userId || score === undefined) {
-        continue;
-      }
-  
-      entries.push({
-        userId,
-        score: Number(score),
-      });
-    }
-  
-    // ---------------------------------------------
-    // Fetch usernames
-    // ---------------------------------------------
-  
-    const users = await prismaClient.user.findMany({
-      where: {
-        id: {
-          in: entries.map((entry) => entry.userId),
+
+    entries.push({
+      userId,
+      score: Number(score),
+    });
+  }
+
+  // ---------------------------------------------
+  // Fetch usernames
+  // ---------------------------------------------
+
+  const users = await prismaClient.user.findMany({
+    where: {
+      id: {
+        in: entries.map((entry) => entry.userId),
+      },
+    },
+    select: {
+      id: true,
+      username: true,
+    },
+  });
+
+  const usernameMap = new Map(users.map((user) => [user.id, user.username]));
+
+  // ---------------------------------------------
+  // Final leaderboard
+  // ---------------------------------------------
+
+  const leaderboard = entries.map((entry, index) => ({
+    rank: index + 1,
+    userId: entry.userId,
+    username: usernameMap.get(entry.userId) ?? "Unknown",
+    score: entry.score,
+  }));
+
+  return {
+    contest: {
+      title: contest.title,
+      slug: contest.slug,
+    },
+    leaderboard,
+  };
+}
+
+export async function getContestStandingsService(slug: string) {
+  const contest = await prismaClient.contest.findUnique({
+    where: {
+      slug,
+    },
+
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+
+      // ---------------------------------------------
+      // Contest problems
+      // ---------------------------------------------
+
+      problems: {
+        orderBy: {
+          index: "asc",
+        },
+
+        select: {
+          index: true,
+          points: true,
+          problemId: true,
+
+          problem: {
+            select: {
+              title: true,
+              slug: true,
+            },
+          },
         },
       },
-      select: {
-        id: true,
-        username: true,
+
+      // ---------------------------------------------
+      // Registered users
+      // ---------------------------------------------
+
+      registrations: {
+        select: {
+          userId: true,
+
+          user: {
+            select: {
+              username: true,
+            },
+          },
+        },
       },
+
+      // ---------------------------------------------
+      // Contest scores
+      // ---------------------------------------------
+
+      contestScores: {
+        select: {
+          userId: true,
+          problemId: true,
+          points: true,
+          solvedAt: true,
+
+          user: {
+            select: {
+              username: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!contest) {
+    throw new Error("Contest not found");
+  }
+
+  // ---------------------------------------------
+  // Standings map
+  // ---------------------------------------------
+
+  const users = new Map<
+    string,
+    {
+      userId: string;
+      username: string;
+      score: number;
+
+      problems: Record<
+        string,
+        {
+          solved: boolean;
+          points: number;
+          solvedAt: Date | null;
+        }
+      >;
+    }
+  >();
+
+  // ---------------------------------------------
+  // Add every registered user
+  // They initially have 0 points
+  // ---------------------------------------------
+
+  for (const registration of contest.registrations) {
+    users.set(registration.userId, {
+      userId: registration.userId,
+      username: registration.user.username,
+      score: 0,
+      problems: {},
     });
-  
-    const usernameMap = new Map(
-      users.map((user) => [user.id, user.username]),
+  }
+
+  // ---------------------------------------------
+  // Apply contest scores
+  // ---------------------------------------------
+
+  for (const score of contest.contestScores) {
+    let standing = users.get(score.userId);
+
+    // Fallback for old data where someone has a score
+    // but does not have a ContestRegistration
+    if (!standing) {
+      standing = {
+        userId: score.userId,
+        username: score.user.username,
+        score: 0,
+        problems: {},
+      };
+
+      users.set(score.userId, standing);
+    }
+
+    // Add score
+    standing.score += score.points;
+
+    // Find A / B / C / ...
+    const contestProblem = contest.problems.find(
+      (cp) => cp.problemId === score.problemId,
     );
-  
-    // ---------------------------------------------
-    // Final leaderboard
-    // ---------------------------------------------
-  
-    const leaderboard = entries.map((entry, index) => ({
-      rank: index + 1,
-      userId: entry.userId,
-      username: usernameMap.get(entry.userId) ?? "Unknown",
-      score: entry.score,
-    }));
-  
-    return {
-      contest: {
-        title: contest.title,
-        slug: contest.slug,
-      },
-      leaderboard,
+
+    if (!contestProblem) {
+      continue;
+    }
+
+    // Mark problem as solved
+    standing.problems[contestProblem.index] = {
+      solved: true,
+      points: score.points,
+      solvedAt: score.solvedAt,
     };
   }
+
+  // ---------------------------------------------
+  // Sort standings
+  // Highest score first
+  // ---------------------------------------------
+
+  const standings = Array.from(users.values())
+    .sort((a, b) => b.score - a.score)
+    .map((user, index) => ({
+      rank: index + 1,
+      ...user,
+    }));
+
+  // ---------------------------------------------
+  // Response
+  // ---------------------------------------------
+
+  return {
+    contest: {
+      title: contest.title,
+      slug: contest.slug,
+    },
+
+    problems: contest.problems.map((cp) => ({
+      index: cp.index,
+      title: cp.problem.title,
+      slug: cp.problem.slug,
+      points: cp.points,
+    })),
+
+    standings,
+  };
+}
 
 export async function rebuildContestLeaderboard(contestId: string) {
   const scores = await prismaClient.contestScore.groupBy({

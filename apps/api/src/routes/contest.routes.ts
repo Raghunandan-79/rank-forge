@@ -12,6 +12,7 @@ import {
   getContestBySlugController,
   getContestLeaderboardController,
   getContestsController,
+  getContestStandingsController,
   registerForContestController,
 } from "../controllers/contest.controller";
 import { createContestSubmissionController } from "../controllers/submission.controller";
@@ -37,6 +38,8 @@ contestRouter.post(
 );
 
 contestRouter.get("/:slug/leaderboard", getContestLeaderboardController);
+
+contestRouter.get("/:slug/standings", getContestStandingsController);
 
 contestRouter.get("/:slug", getContestBySlugController);
 

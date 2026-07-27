@@ -11,6 +11,7 @@ import {
   getContestBySlugService,
   getContestLeaderboardService,
   getContestsService,
+  getContestStandingsService,
   registerForContestService,
 } from "../services/contest.service";
 
@@ -169,6 +170,28 @@ export async function getContestLeaderboardController(
     const result = await getContestLeaderboardService(slug);
 
     return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getContestStandingsController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { slug } = req.params;
+
+    if (typeof slug !== "string") {
+      return res.status(400).json({
+        error: "Contest slug is required",
+      });
+    }
+
+    const standings = await getContestStandingsService(slug);
+
+    return res.status(200).json(standings);
   } catch (error) {
     next(error);
   }
