@@ -89,12 +89,12 @@ export const submissionWorker = new Worker(
           console.log("=== COMPILER OUTPUT ===");
           console.log(result.compile_output);
         }
-        
+
         if (result.stderr) {
           console.log("=== STDERR ===");
           console.log(result.stderr);
         }
-        
+
         if (result.message) {
           console.log("=== JUDGE0 MESSAGE ===");
           console.log(result.message);
@@ -248,12 +248,18 @@ export const submissionWorker = new Worker(
         maxMemory,
       );
 
+      // Award points only for contest submissions
+      if (submission.contestId) {
+        await awardContestPoints(
+          submission.contestId,
+          submission.userId,
+          submission.problemId,
+        );
+      }
+
       console.log(`Submission accepted: ${submission.id}`);
-
       console.log(`Tests: ${passedTests}/${totalTests}`);
-
       console.log(`Execution time: ${totalExecutionTime}s`);
-
       console.log(`Max memory: ${maxMemory} KB`);
     } catch (error) {
       console.error(`Error judging submission ${submission.id}:`, error);
@@ -313,6 +319,54 @@ async function updateFinalResult(
       memoryUsed,
     },
   });
+}
+
+async function awardContestPoints(
+  contestId: string,
+  userId: string,
+  problemId: string,
+) {
+  const contestProblem = await prismaClient.contestProblem.findUnique({
+    where: {
+      contestId_problemId: {
+        contestId,
+        problemId,
+      },
+    },
+    select: {
+      points: true,
+    },
+  });
+
+  if (!contestProblem) {
+    throw new Error("Problem does not belong to this contest");
+  }
+
+  // createMany + skipDuplicates makes awarding idempotent.
+  // The DB unique constraint is the final protection against double scoring.
+  const result = await prismaClient.contestScore.createMany({
+    data: [
+      {
+        contestId,
+        userId,
+        problemId,
+        points: contestProblem.points,
+      },
+    ],
+    skipDuplicates: true,
+  });
+
+  if (result.count === 0) {
+    console.log(
+      `Contest points already awarded: user=${userId}, problem=${problemId}`,
+    );
+
+    return;
+  }
+
+  console.log(
+    `Contest points awarded: user=${userId}, problem=${problemId}, points=${contestProblem.points}`,
+  );
 }
 
 // ------------------------------------------------

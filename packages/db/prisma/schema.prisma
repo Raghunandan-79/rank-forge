@@ -29,8 +29,9 @@ model User {
   submissions          Submission[]
   contestRegistrations ContestRegistration[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contestScores ContestScore[]
 }
 
 enum Difficulty {
@@ -65,8 +66,9 @@ model Problem {
   submissions     Submission[]
   contestProblems ContestProblem[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contestScores ContestScore[]
 }
 
 enum SubmissionStatus {
@@ -129,8 +131,9 @@ model Contest {
   registrations ContestRegistration[]
   submissions   Submission[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contestScores ContestScore[]
 }
 
 model ContestProblem {
@@ -166,4 +169,24 @@ model ContestRegistration {
   registeredAt DateTime @default(now())
 
   @@unique([contestId, userId])
+}
+
+model ContestScore {
+  id String @id @default(cuid())
+
+  contestId String
+  contest   Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  points Int
+
+  solvedAt DateTime @default(now())
+
+  @@unique([contestId, userId, problemId])
+  @@index([contestId, userId])
 }
