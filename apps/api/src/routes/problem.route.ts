@@ -9,13 +9,19 @@ import {
   getProblemBySlugController,
   getProblemsController,
 } from "../controllers/problem.controller";
-import { createSubmissionController } from "../controllers/submission.controller";
+import { createSubmissionController, getProblemSubmissionsController } from "../controllers/submission.controller";
 
 const problemRouter = Router();
 
 problemRouter.get("/", getProblemsController);
 
 problemRouter.get("/:slug", getProblemBySlugController);
+
+problemRouter.get(
+  "/:slug/submissions",
+  authMiddleware,
+  getProblemSubmissionsController,
+);
 
 problemRouter.post(
   "/",

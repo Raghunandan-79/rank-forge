@@ -1,6 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import { createSubmissionSchema } from "../schemas/schemas";
-import { createSubmissionService, getSubmissionByIdService } from "../services/submission.service";
+import {
+  createSubmissionService,
+  getProblemSubmissionsService,
+  getSubmissionByIdService,
+  getUserSubmissionsService,
+} from "../services/submission.service";
 
 export async function createSubmissionController(
   req: Request,
@@ -81,6 +86,70 @@ export async function getSubmissionByIdController(
     return res.status(200).json({
       submission,
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getUserSubmissionsController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    const page = Math.max(Number(req.query.page) || 1, 1);
+
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+
+    const result = await getUserSubmissionsService(userId, page, limit);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getProblemSubmissionsController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.userId;
+    const { slug } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    if (typeof slug !== "string") {
+      return res.status(400).json({
+        error: "Problem slug is required",
+      });
+    }
+
+    const page = Math.max(Number(req.query.page) || 1, 1);
+
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+
+    const result = await getProblemSubmissionsService(
+      userId,
+      slug,
+      page,
+      limit,
+    );
+
+    return res.status(200).json(result);
   } catch (error) {
     next(error);
   }

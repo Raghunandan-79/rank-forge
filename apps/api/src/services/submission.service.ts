@@ -72,3 +72,120 @@ export async function getSubmissionByIdService(
 
   return submission;
 }
+
+export async function getUserSubmissionsService(
+  userId: string,
+  page: number,
+  limit: number,
+) {
+  const skip = (page - 1) * limit;
+
+  const [submissions, total] = await Promise.all([
+    prismaClient.submission.findMany({
+      where: {
+        userId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        status: true,
+        language: true,
+        executionTime: true,
+        memoryUsed: true,
+        passedTests: true,
+        totalTests: true,
+        createdAt: true,
+
+        problem: {
+          select: {
+            title: true,
+            slug: true,
+            difficulty: true,
+          },
+        },
+      },
+    }),
+
+    prismaClient.submission.count({
+      where: {
+        userId,
+      },
+    }),
+  ]);
+
+  return {
+    submissions,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+export async function getProblemSubmissionsService(
+  userId: string,
+  slug: string,
+  page: number,
+  limit: number,
+) {
+  const problem = await prismaClient.problem.findUnique({
+    where: {
+      slug,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!problem) {
+    throw new Error("Problem not found");
+  }
+
+  const skip = (page - 1) * limit;
+
+  const where = {
+    userId,
+    problemId: problem.id,
+  };
+
+  const [submissions, total] = await Promise.all([
+    prismaClient.submission.findMany({
+      where,
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        status: true,
+        language: true,
+        executionTime: true,
+        memoryUsed: true,
+        passedTests: true,
+        totalTests: true,
+        createdAt: true,
+      },
+    }),
+
+    prismaClient.submission.count({
+      where,
+    }),
+  ]);
+
+  return {
+    submissions,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
