@@ -99,6 +99,9 @@ model Submission {
   language   ProgrammingLanguage
   status     SubmissionStatus    @default(PENDING)
 
+  customInput          String?
+  customExpectedOutput String?
+
   executionTime Float?
   memoryUsed    Int?
   passedTests   Int    @default(0)

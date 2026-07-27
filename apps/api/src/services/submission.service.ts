@@ -8,6 +8,8 @@ export async function createSubmissionService(
   slug: string,
   sourceCode: string,
   language: ProgrammingLanguage,
+  customInput?: string,
+  customExpectedOutput?: string,
 ) {
   const problem = await prismaClient.problem.findUnique({
     where: {
@@ -28,6 +30,8 @@ export async function createSubmissionService(
       problemId: problem.id,
       sourceCode,
       language,
+      customInput: customInput ?? null,
+      customExpectedOutput: customExpectedOutput ?? null,
     },
   });
 

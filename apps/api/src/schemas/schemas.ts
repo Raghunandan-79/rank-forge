@@ -52,6 +52,8 @@ export const createSubmissionSchema = z
   .object({
     sourceCode: z.string().min(1).max(100000),
     language: z.enum(["C", "CPP", "JAVA", "PYTHON", "JAVASCRIPT"]),
+    customInput: z.string().max(100000).optional(),
+    customExpectedOutput: z.string().max(100000).optional(),
   })
   .strict();
 

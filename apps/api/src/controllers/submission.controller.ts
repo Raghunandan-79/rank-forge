@@ -43,13 +43,15 @@ export async function createSubmissionController(
       });
     }
 
-    const { sourceCode, language } = parsed.data;
+    const { sourceCode, language, customInput, customExpectedOutput } = parsed.data;
 
     const submission = await createSubmissionService(
       userId,
       slug,
       sourceCode,
       language,
+      customInput,
+      customExpectedOutput,
     );
 
     return res.status(201).json({

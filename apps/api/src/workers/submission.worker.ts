@@ -31,7 +31,18 @@ export const submissionWorker = new Worker(
       throw new Error("Submission not found");
     }
 
-    const totalTests = submission.problem.testCases.length;
+    const testCases = submission.customInput !== null
+      ? [
+          {
+            id: "custom",
+            input: submission.customInput,
+            expectedOutput: submission.customExpectedOutput ?? "",
+            isHidden: false,
+          },
+        ]
+      : submission.problem.testCases;
+
+    const totalTests = testCases.length;
 
     // ------------------------------------------------
     // Metrics
@@ -73,7 +84,7 @@ export const submissionWorker = new Worker(
 
       let result: any = null;
 
-      for (const testCase of submission.problem.testCases) {
+      for (const testCase of testCases) {
         console.log(`Running test case: ${testCase.id}`);
 
         result = await executeCode(
@@ -102,7 +113,8 @@ export const submissionWorker = new Worker(
           stderr: result.stderr,
           time: result.time,
           memory: result.memory,
-          passed
+          passed,
+          isHidden: testCase.isHidden,
         });
 
         if (result.compile_output) {

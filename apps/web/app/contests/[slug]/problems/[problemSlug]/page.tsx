@@ -111,6 +111,11 @@ export default function ProblemSolvingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Custom Testcase states
+  const [useCustomTestcase, setUseCustomTestcase] = useState(false);
+  const [customInput, setCustomInput] = useState("");
+  const [customExpectedOutput, setCustomExpectedOutput] = useState("");
+
   // Submission Results state
   const [submissionResult, setSubmissionResult] = useState<any>(null);
   const [pollingStatus, setPollingStatus] = useState<string | null>(null);
@@ -122,6 +127,10 @@ export default function ProblemSolvingPage() {
       // Fetch problem details
       const res = await api.get(`/problems/${problemSlug}`);
       setProblem(res.problem);
+      if (res.problem?.examples && res.problem.examples.length > 0) {
+        setCustomInput(res.problem.examples[0].input);
+        setCustomExpectedOutput(res.problem.examples[0].expectedOutput);
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to load problem details.");
       router.push(`/contests/${contestSlug}`);
@@ -229,10 +238,17 @@ export default function ProblemSolvingPage() {
         ? `/problems/${problemSlug}/submissions`
         : `/contests/${contestSlug}/problems/${problemSlug}/submissions`;
 
-      const res = await api.post(endpoint, {
+      const payload: any = {
         sourceCode: code,
         language: selectedLanguage
-      });
+      };
+
+      if (isRunOnly && useCustomTestcase) {
+        payload.customInput = customInput;
+        payload.customExpectedOutput = customExpectedOutput;
+      }
+
+      const res = await api.post(endpoint, payload);
 
       const subId = res.submission?.id;
       if (subId) {
@@ -259,11 +275,11 @@ export default function ProblemSolvingPage() {
   if (!user || !problem) return null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
       <Navbar />
 
       {/* Subheader */}
-      <div className="border-b border-border bg-card/65 px-6 py-3 flex items-center justify-between">
+      <div className="flex-shrink-0 border-b border-border bg-card/65 px-6 py-3 flex items-center justify-between">
         <Link
           href={`/contests/${contestSlug}`}
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -277,7 +293,7 @@ export default function ProblemSolvingPage() {
       </div>
 
       {/* Main Workspace Split screen */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden h-[calc(100vh-100px)]">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden">
         {/* Left Column: Problem Details */}
         <div className="border-r border-border overflow-y-auto p-6 space-y-6">
           <div className="space-y-3">
@@ -418,6 +434,54 @@ export default function ProblemSolvingPage() {
 
           {/* Bottom Execution Panel */}
           <div className="border-t border-border bg-card p-4 space-y-4">
+            {/* Custom Testcase input panel */}
+            <div className="border border-border/50 rounded-lg p-3 bg-black/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="custom-testcase-toggle"
+                    checked={useCustomTestcase}
+                    onChange={(e) => setUseCustomTestcase(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-border text-primary bg-background focus:ring-0 cursor-pointer"
+                  />
+                  <label htmlFor="custom-testcase-toggle" className="text-xs font-bold text-foreground cursor-pointer select-none">
+                    Use Custom Testcase
+                  </label>
+                </div>
+                {useCustomTestcase && (
+                  <span className="text-[10px] text-amber-500 font-mono">
+                    Will run against custom inputs below instead of samples.
+                  </span>
+                )}
+              </div>
+
+              {useCustomTestcase && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Custom Input</span>
+                    <textarea
+                      rows={3}
+                      value={customInput}
+                      onChange={(e) => setCustomInput(e.target.value)}
+                      className="w-full p-2.5 bg-black/40 rounded border border-border/60 font-mono text-xs text-foreground focus:outline-none focus:border-primary/80 resize-y"
+                      placeholder="Enter custom input here..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expected Output (Optional)</span>
+                    <textarea
+                      rows={3}
+                      value={customExpectedOutput}
+                      onChange={(e) => setCustomExpectedOutput(e.target.value)}
+                      className="w-full p-2.5 bg-black/40 rounded border border-border/60 font-mono text-xs text-foreground focus:outline-none focus:border-primary/80 resize-y"
+                      placeholder="Enter expected output to compare (optional)..."
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between gap-4">
               <div className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
                 {pollingStatus ? (
@@ -456,7 +520,7 @@ export default function ProblemSolvingPage() {
 
             {/* Judging Result Summary Card */}
             {submissionResult && (
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
                 {/* Result header banner */}
                 <div className={`p-4 rounded-lg border text-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                   submissionResult.status === "ACCEPTED"
@@ -553,23 +617,25 @@ export default function ProblemSolvingPage() {
                                   <div className="space-y-1">
                                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Input</span>
                                     <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-zinc-300 whitespace-pre-wrap">
-                                      {tc.input}
+                                      {tc.isHidden ? "[Hidden Test Case]" : tc.input}
                                     </pre>
                                   </div>
 
                                   <div className="space-y-1">
                                     <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Your Output</span>
                                     <pre className={`p-3 bg-black/40 rounded border border-border/40 overflow-x-auto font-semibold whitespace-pre-wrap ${tc.passed ? "text-emerald-300" : "text-rose-400"}`}>
-                                      {tc.actualOutput || "(No output)"}
+                                      {tc.isHidden ? (tc.passed ? "[Output matches expected]" : "[Output mismatch or execution error]") : (tc.actualOutput || "(No output)")}
                                     </pre>
                                   </div>
 
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expected Output</span>
-                                    <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-zinc-300 whitespace-pre-wrap">
-                                      {tc.expectedOutput}
-                                    </pre>
-                                  </div>
+                                  {(!tc.isHidden || tc.expectedOutput) && (
+                                    <div className="space-y-1">
+                                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expected Output</span>
+                                      <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-zinc-300 whitespace-pre-wrap">
+                                        {tc.isHidden ? "[Hidden Test Case]" : tc.expectedOutput || "(None provided)"}
+                                      </pre>
+                                    </div>
+                                  )}
 
                                   {tc.stderr && (
                                     <div className="space-y-1">
