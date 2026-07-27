@@ -36,7 +36,7 @@ export default function CreateContestPage() {
     );
   }
 
-  if (!user || (user.role !== "ADMIN" && user.role !== "PROBLEM_SETTER")) {
+  if (!user || user.role !== "ADMIN") {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />

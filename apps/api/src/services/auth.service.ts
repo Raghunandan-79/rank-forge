@@ -59,6 +59,7 @@ export async function loginService(email: string, password: string) {
     id: existingUser.id,
     username: existingUser.username,
     email: existingUser.email,
+    role: existingUser.role,
     createdAt: existingUser.createdAt,
   };
 }
@@ -75,9 +76,10 @@ export async function getMeService(userId: string) {
   }
 
   return {
-    id: user?.id,
-    username: user?.username,
-    email: user?.email,
-    createdAt: user?.createdAt,
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt,
   };
 }

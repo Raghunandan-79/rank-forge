@@ -26,7 +26,7 @@ contestRouter.post(
   "/",
   authMiddleware,
   csrfMiddleware,
-  roleMiddleware([UserRole.PROBLEM_SETTER, UserRole.ADMIN]),
+  roleMiddleware([UserRole.ADMIN]),
   createContestController,
 );
 

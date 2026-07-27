@@ -183,12 +183,14 @@ export default function AdminDashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/admin/contests/new">
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow">
-                <Plus className="h-4 w-4" />
-                New Contest
-              </Button>
-            </Link>
+            {user.role === "ADMIN" && (
+              <Link href="/admin/contests/new">
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow">
+                  <Plus className="h-4 w-4" />
+                  New Contest
+                </Button>
+              </Link>
+            )}
             <Link href="/admin/problems/new">
               <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 shadow">
                 <Plus className="h-4 w-4" />
