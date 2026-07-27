@@ -1,4 +1,12 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
+const getApiBaseUrl = () => {
+  const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
+  if (url && !url.endsWith("/api/v1")) {
+    return `${url.replace(/\/$/, "")}/api/v1`;
+  }
+  return url;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 let csrfToken: string | null = null;
 
