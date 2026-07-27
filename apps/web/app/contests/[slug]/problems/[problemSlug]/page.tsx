@@ -581,73 +581,85 @@ export default function ProblemSolvingPage() {
                           </TabsList>
 
                           <TabsContent value="test-results" className="space-y-4 pt-2">
-                            <Tabs defaultValue="case-0" className="w-full">
-                              <div className="flex items-center justify-between border-b border-border/40 pb-2 mb-2 overflow-x-auto gap-2">
-                                <TabsList className="bg-transparent h-auto p-0 gap-1 justify-start">
-                                  {submissionResult.output.testCaseResults.map((tc: any, idx: number) => (
-                                    <TabsTrigger
-                                      key={idx}
-                                      value={`case-${idx}`}
-                                      className={`text-xs px-3 py-1 rounded-md border flex items-center gap-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:border-border ${
-                                        tc.passed
-                                          ? "border-emerald-500/20 text-emerald-500 data-[state=active]:text-emerald-400"
-                                          : "border-rose-500/20 text-rose-500 data-[state=active]:text-rose-400"
-                                      }`}
-                                    >
-                                      {tc.passed ? (
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                      ) : (
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                            {(() => {
+                              const visibleTestCases = submissionResult.output.testCaseResults.filter((tc: any) => !tc.isHidden);
+                              if (visibleTestCases.length === 0) {
+                                return (
+                                  <div className="text-zinc-400 text-xs py-8 text-center bg-[#151515] rounded-lg border border-border/40">
+                                    All verification test cases are hidden for this submission.
+                                  </div>
+                                );
+                              }
+                              return (
+                                <Tabs defaultValue="case-0" className="w-full">
+                                  <div className="flex items-center justify-between border-b border-border/40 pb-2 mb-2 overflow-x-auto gap-2">
+                                    <TabsList className="bg-transparent h-auto p-0 gap-1 justify-start">
+                                      {visibleTestCases.map((tc: any, idx: number) => (
+                                        <TabsTrigger
+                                          key={idx}
+                                          value={`case-${idx}`}
+                                          className={`text-xs px-3 py-1 rounded-md border flex items-center gap-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:border-border ${
+                                            tc.passed
+                                              ? "border-emerald-500/20 text-emerald-500 data-[state=active]:text-emerald-400"
+                                              : "border-rose-500/20 text-rose-500 data-[state=active]:text-rose-400"
+                                          }`}
+                                        >
+                                          {tc.passed ? (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                          ) : (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                          )}
+                                          Case {idx + 1}
+                                        </TabsTrigger>
+                                      ))}
+                                    </TabsList>
+                                  </div>
+
+                                  {visibleTestCases.map((tc: any, idx: number) => (
+                                    <TabsContent key={idx} value={`case-${idx}`} className="space-y-3 font-mono text-xs text-foreground">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Status</span>
+                                        <Badge className={tc.passed ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"}>
+                                          {tc.status}
+                                        </Badge>
+                                      </div>
+
+                                      <div className="space-y-1">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Input</span>
+                                        <pre className="p-3 bg-[#151515] rounded border border-border/40 overflow-x-auto text-zinc-300 font-mono whitespace-pre-wrap">
+                                          {tc.input}
+                                        </pre>
+                                      </div>
+
+                                      <div className="space-y-1">
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${tc.passed ? "text-emerald-400" : "text-rose-400"}`}>Output</span>
+                                        <pre className={`p-3 bg-[#151515] rounded border border-border/40 overflow-x-auto font-mono whitespace-pre-wrap ${tc.passed ? "text-emerald-400" : "text-rose-400"}`}>
+                                          {tc.actualOutput || "(No output)"}
+                                        </pre>
+                                      </div>
+
+                                      {tc.expectedOutput && (
+                                        <div className="space-y-1">
+                                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expected</span>
+                                          <pre className="p-3 bg-[#151515] rounded border border-border/40 overflow-x-auto text-zinc-300 font-mono whitespace-pre-wrap">
+                                            {tc.expectedOutput}
+                                          </pre>
+                                        </div>
                                       )}
-                                      Case {idx + 1}
-                                    </TabsTrigger>
-                                  ))}
-                                </TabsList>
-                              </div>
 
-                              {submissionResult.output.testCaseResults.map((tc: any, idx: number) => (
-                                <TabsContent key={idx} value={`case-${idx}`} className="space-y-3 font-mono text-xs text-foreground">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Status</span>
-                                    <Badge className={tc.passed ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"}>
-                                      {tc.status}
-                                    </Badge>
-                                  </div>
-
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Input</span>
-                                    <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-zinc-300 whitespace-pre-wrap">
-                                      {tc.isHidden ? "[Hidden Test Case]" : tc.input}
-                                    </pre>
-                                  </div>
-
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Your Output</span>
-                                    <pre className={`p-3 bg-black/40 rounded border border-border/40 overflow-x-auto font-semibold whitespace-pre-wrap ${tc.passed ? "text-emerald-300" : "text-rose-400"}`}>
-                                      {tc.isHidden ? (tc.passed ? "[Output matches expected]" : "[Output mismatch or execution error]") : (tc.actualOutput || "(No output)")}
-                                    </pre>
-                                  </div>
-
-                                  {(!tc.isHidden || tc.expectedOutput) && (
-                                    <div className="space-y-1">
-                                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expected Output</span>
-                                      <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-zinc-300 whitespace-pre-wrap">
-                                        {tc.isHidden ? "[Hidden Test Case]" : tc.expectedOutput || "(None provided)"}
-                                      </pre>
-                                    </div>
-                                  )}
-
-                                  {tc.stderr && (
-                                    <div className="space-y-1">
-                                      <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Standard Error (stderr)</span>
-                                      <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-400 whitespace-pre-wrap">
-                                        {tc.stderr}
-                                      </pre>
-                                    </div>
-                                  )}
-                                </TabsContent>
-                              ))}
-                            </Tabs>
+                                      {tc.stderr && (
+                                        <div className="space-y-1">
+                                          <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Stderr</span>
+                                          <pre className="p-3 bg-[#151515] rounded border border-border/40 overflow-x-auto text-rose-400 font-mono whitespace-pre-wrap">
+                                            {tc.stderr}
+                                          </pre>
+                                        </div>
+                                      )}
+                                     </TabsContent>
+                                   ))}
+                                </Tabs>
+                              );
+                            })()}
                           </TabsContent>
 
                           {!submissionResult.isRunOnly && (
@@ -655,18 +667,51 @@ export default function ProblemSolvingPage() {
                               <div className="space-y-3 font-mono text-xs">
                                 {submissionResult.status === "ACCEPTED" ? (
                                   <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 space-y-1">
-                                    <div className="font-bold text-sm">All Test Cases Passed! 🎉</div>
-                                    <div>Your code successfully beat all verification test cases inside the server runtime execution limits.</div>
+                                    <div className="font-bold text-sm">Accepted 🎉</div>
+                                    <div className="text-zinc-400">All test cases passed!</div>
                                   </div>
                                 ) : (
-                                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 space-y-2">
-                                    <div className="font-bold text-sm flex items-center gap-2">
+                                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 space-y-4">
+                                    <div className="font-bold text-sm flex items-center gap-2 border-b border-rose-500/25 pb-2 text-rose-400">
                                       <AlertTriangle className="h-4 w-4 shrink-0" />
-                                      Failed on testcase #{submissionResult.passedTests + 1}
+                                      {submissionResult.status.replace(/_/g, " ")}
                                     </div>
-                                    <div>
-                                      The first failing test case execution result has been highlighted under Case {submissionResult.passedTests + 1} in the Test Cases tab.
+                                    <div className="text-zinc-300">
+                                      {submissionResult.passedTests} / {submissionResult.totalTests} test cases passed.
                                     </div>
+                                    {submissionResult.output.testCaseResults && submissionResult.output.testCaseResults.find((tc: any) => !tc.passed) && (() => {
+                                      const failingTestCase = submissionResult.output.testCaseResults.find((tc: any) => !tc.passed);
+                                      return (
+                                        <div className="space-y-3 pt-2 border-t border-rose-500/10">
+                                          <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Input</span>
+                                            <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-zinc-300 whitespace-pre-wrap font-mono">
+                                              {failingTestCase.isHidden ? "[Hidden Test Case]" : failingTestCase.input}
+                                            </pre>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">Output</span>
+                                            <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-300 whitespace-pre-wrap font-mono font-semibold">
+                                              {failingTestCase.isHidden ? "[Output mismatch or execution error]" : failingTestCase.actualOutput || "(No output)"}
+                                            </pre>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expected</span>
+                                            <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-zinc-300 whitespace-pre-wrap font-mono">
+                                              {failingTestCase.isHidden ? "[Hidden Test Case]" : failingTestCase.expectedOutput || "(None provided)"}
+                                            </pre>
+                                          </div>
+                                          {failingTestCase.stderr && (
+                                            <div className="space-y-1">
+                                              <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Stderr</span>
+                                              <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-400 whitespace-pre-wrap font-mono">
+                                                {failingTestCase.stderr}
+                                              </pre>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 )}
                               </div>
