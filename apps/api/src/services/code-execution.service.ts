@@ -62,7 +62,7 @@ export async function executeCode(
   timeLimit: number,
   memoryLimit: number,
 ): Promise<ExecutionResult> {
-  const apiUrl = process.env.JUDGE0_URL;
+  const apiUrl = process.env.JUDGE0_API_URL;
 
   if (!apiUrl) {
     throw new Error("JUDGE0_URL is missing");
