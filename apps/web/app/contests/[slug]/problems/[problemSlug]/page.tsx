@@ -156,8 +156,8 @@ export default function ProblemSolvingPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const pollSubmissionStatus = (submissionId: string) => {
-    setPollingStatus("Judging...");
+  const pollSubmissionStatus = (submissionId: string, isRunOnly: boolean) => {
+    setPollingStatus(isRunOnly ? "Running..." : "Judging...");
     let attempts = 0;
 
     pollIntervalRef.current = setInterval(async () => {
@@ -168,26 +168,26 @@ export default function ProblemSolvingPage() {
 
         if (sub.status !== "PENDING" || attempts > 30) {
           clearInterval(pollIntervalRef.current);
-          setSubmissionResult(sub);
+          setSubmissionResult({ ...sub, isRunOnly });
           setPollingStatus(null);
           setSubmitting(false);
 
           if (sub.status === "ACCEPTED") {
-            toast.success("Accepted! All test cases passed!");
+            toast.success(isRunOnly ? "Run finished: Accepted!" : "Accepted! All test cases passed!");
           } else {
-            toast.error(`Submission failed: ${sub.status.replace("_", " ")}`);
+            toast.error(`${isRunOnly ? "Run failed" : "Submission failed"}: ${sub.status.replace("_", " ")}`);
           }
         }
       } catch (err) {
         clearInterval(pollIntervalRef.current);
         setPollingStatus(null);
         setSubmitting(false);
-        toast.error("Failed to query submission status.");
+        toast.error("Failed to query execution status.");
       }
     }, 1500);
   };
 
-  const handleSubmit = async () => {
+  const handleExecute = async (isRunOnly: boolean) => {
     if (!code.trim()) {
       toast.error("Code cannot be empty.");
       return;
@@ -195,25 +195,26 @@ export default function ProblemSolvingPage() {
 
     setSubmitting(true);
     setSubmissionResult(null);
-    setPollingStatus("Submitting...");
+    setPollingStatus(isRunOnly ? "Running..." : "Submitting...");
 
     try {
-      const res = await api.post(
-        `/contests/${contestSlug}/problems/${problemSlug}/submissions`,
-        {
-          sourceCode: code,
-          language: selectedLanguage
-        }
-      );
+      const endpoint = isRunOnly
+        ? `/problems/${problemSlug}/submissions`
+        : `/contests/${contestSlug}/problems/${problemSlug}/submissions`;
+
+      const res = await api.post(endpoint, {
+        sourceCode: code,
+        language: selectedLanguage
+      });
 
       const subId = res.submission?.id;
       if (subId) {
-        pollSubmissionStatus(subId);
+        pollSubmissionStatus(subId, isRunOnly);
       } else {
         throw new Error("Invalid response from server.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to submit code.");
+      toast.error(err.message || "Failed to execute code.");
       setPollingStatus(null);
       setSubmitting(false);
     }
@@ -402,18 +403,28 @@ export default function ProblemSolvingPage() {
                 )}
               </div>
 
-              <Button
-                className="gap-2 px-6"
-                disabled={submitting}
-                onClick={handleSubmit}
-              >
-                {submitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4 fill-current" />
-                )}
-                Submit Code
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2 px-5"
+                  disabled={submitting}
+                  onClick={() => handleExecute(true)}
+                >
+                  Run Code
+                </Button>
+                <Button
+                  className="gap-2 px-5"
+                  disabled={submitting}
+                  onClick={() => handleExecute(false)}
+                >
+                  {submitting && !submissionResult?.isRunOnly ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 fill-current" />
+                  )}
+                  Submit Code
+                </Button>
+              </div>
             </div>
 
             {/* Judging Result Summary Card */}
@@ -430,18 +441,20 @@ export default function ProblemSolvingPage() {
                     <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
                   )}
                   <div className="space-y-1">
-                    <p className="font-bold flex items-center gap-2">
-                      <span>Result: {submissionResult.status.replace("_", " ")}</span>
+                    <div className="font-bold flex items-center gap-2">
+                      <span>
+                        {submissionResult.isRunOnly ? "Run Result" : "Submission Result"}: {submissionResult.status.replace("_", " ")}
+                      </span>
                       <Badge variant="outline" className={`text-[10px] uppercase font-mono ${
                         submissionResult.status === "ACCEPTED" ? "border-emerald-500/30 text-emerald-500" : "border-rose-500/30 text-rose-500"
                       }`}>
                         {submissionResult.passedTests} / {submissionResult.totalTests} Passed
                       </Badge>
-                    </p>
-                    <p className="text-xs opacity-90">
+                    </div>
+                    <div className="text-xs opacity-90">
                       Execution Time: {submissionResult.executionTime != null ? `${submissionResult.executionTime.toFixed(3)}s` : "N/A"} | 
                       Memory Used: {submissionResult.memoryUsed != null ? `${(submissionResult.memoryUsed / 1024).toFixed(1)} MB` : "N/A"}
-                    </p>
+                    </div>
                   </div>
                 </div>
               </div>
