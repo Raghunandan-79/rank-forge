@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rankforge-postgres
+    environment:
+      POSTGRES_DB: rankforge
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secure_db_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: rankforge-redis
+    command: redis-server --requirepass secure_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    restart: always
+
+  api:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+    container_name: rankforge-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://admin:secure_db_password@postgres:5432/rankforge?schema=public
+      - REDIS_URL=redis://:secure_redis_password@redis:6379
+      - JUDGE0_API_URL=http://localhost:2358
+      - SESSION_SECRET=change-this-to-a-secure-random-key
+      - CORS_ORIGIN=https://your-frontend-vercel.vercel.app
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile.worker
+    container_name: rankforge-worker
+    environment:
+      - DATABASE_URL=postgresql://admin:secure_db_password@postgres:5432/rankforge?schema=public
+      - REDIS_URL=redis://:secure_redis_password@redis:6379
+      - JUDGE0_API_URL=http://localhost:2358
+    depends_on:
+      - redis
+    restart: always
+
+volumes:
+  pgdata:
+  redisdata:
