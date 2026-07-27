@@ -8,14 +8,11 @@ export type ExecutionResult = {
   time: string | null;
   memory: number | null;
   token: string;
+
   status: {
     id: number;
     description: string;
   };
-};
-
-type SubmissionCreatedResponse = {
-  token: string;
 };
 
 const LANGUAGE_MAP: Record<ProgrammingLanguage, number> = {
@@ -26,21 +23,17 @@ const LANGUAGE_MAP: Record<ProgrammingLanguage, number> = {
   [ProgrammingLanguage.JAVASCRIPT]: 63,
 };
 
-// Judge0:
-// 1 = In Queue
-// 2 = Processing
-// >= 3 = Finished
-const JUDGE0_PENDING_STATUSES = new Set([1, 2]);
-
-const POLL_INTERVAL_MS = 300;
-
-// This prevents our BullMQ worker from polling Judge0 forever.
-// This is NOT the code execution time limit.
-const MAX_POLL_TIME_MS = 15_000;
+// ------------------------------------------------
+// Encode UTF-8 string to Base64
+// ------------------------------------------------
 
 function encodeBase64(value: string): string {
   return Buffer.from(value, "utf8").toString("base64");
 }
+
+// ------------------------------------------------
+// Decode Base64 response from Judge0
+// ------------------------------------------------
 
 function decodeBase64(value: string | null): string | null {
   if (!value) {
@@ -50,19 +43,17 @@ function decodeBase64(value: string | null): string | null {
   return Buffer.from(value, "base64").toString("utf8");
 }
 
+// ------------------------------------------------
+// Sleep helper for polling
+// ------------------------------------------------
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function decodeExecutionResult(result: ExecutionResult): ExecutionResult {
-  return {
-    ...result,
-    stdout: decodeBase64(result.stdout),
-    stderr: decodeBase64(result.stderr),
-    compile_output: decodeBase64(result.compile_output),
-    message: decodeBase64(result.message),
-  };
-}
+// ------------------------------------------------
+// Execute code using Judge0
+// ------------------------------------------------
 
 export async function executeCode(
   sourceCode: string,
@@ -77,80 +68,182 @@ export async function executeCode(
     throw new Error("JUDGE0_URL is missing");
   }
 
-  // Create submission asynchronously
+  const languageId = LANGUAGE_MAP[language];
+
+  if (!languageId) {
+    throw new Error(`Unsupported programming language: ${language}`);
+  }
+
+  // ------------------------------------------------
+  // 1. Create Judge0 submission
+  // ------------------------------------------------
+
   const response = await fetch(
     `${apiUrl}/submissions?base64_encoded=true&wait=false`,
     {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json",
       },
 
       body: JSON.stringify({
         source_code: encodeBase64(sourceCode),
-        language_id: LANGUAGE_MAP[language],
+
+        language_id: languageId,
+
         stdin: encodeBase64(input),
 
-        // Per-problem execution limits
+        // CPU time in seconds
         cpu_time_limit: timeLimit,
 
-        // Small grace period after CPU limit
+        // Small amount of additional CPU time
         cpu_extra_time: 1,
 
-        // Wall time should be slightly higher than CPU time
-        wall_time_limit: timeLimit + 3,
+        // Wall time must be larger than CPU time
+        wall_time_limit: Math.max(
+          timeLimit * 2,
+          timeLimit + 2,
+        ),
 
-        // CodeArena stores MB.
+        // Problem stores MB.
         // Judge0 expects KB.
         memory_limit: memoryLimit * 1024,
       }),
     },
   );
 
+  // ------------------------------------------------
+  // Handle Judge0 HTTP errors
+  // ------------------------------------------------
+
   if (!response.ok) {
     const body = await response.text();
 
-    throw new Error(`Judge0 submission failed: ${response.status} ${body}`);
+    throw new Error(
+      `Judge0 request failed: ${response.status} ${body}`,
+    );
   }
 
-  const submission = (await response.json()) as SubmissionCreatedResponse;
+  // ------------------------------------------------
+  // Judge0 returns a token
+  // ------------------------------------------------
 
-  if (!submission.token) {
-    throw new Error("Judge0 did not return a submission token");
+  const created = (await response.json()) as {
+    token?: string;
+  };
+
+  if (!created.token) {
+    throw new Error(
+      "Judge0 did not return a submission token",
+    );
   }
 
-  return pollSubmission(apiUrl, submission.token);
-}
+  console.log(`Judge0 token: ${created.token}`);
 
-async function pollSubmission(
-  apiUrl: string,
-  token: string,
-): Promise<ExecutionResult> {
-  const startedAt = Date.now();
+  // ------------------------------------------------
+  // 2. Poll Judge0 until execution completes
+  // ------------------------------------------------
 
-  while (Date.now() - startedAt < MAX_POLL_TIME_MS) {
-    const response = await fetch(
-      `${apiUrl}/submissions/${token}?base64_encoded=true`,
+  const maxAttempts = 30;
+  const pollInterval = 500;
+
+  for (
+    let attempt = 1;
+    attempt <= maxAttempts;
+    attempt++
+  ) {
+    const resultResponse = await fetch(
+      `${apiUrl}/submissions/${created.token}?base64_encoded=true`,
     );
 
-    if (!response.ok) {
-      const body = await response.text();
+    // ------------------------------------------------
+    // Handle polling HTTP errors
+    // ------------------------------------------------
 
-      throw new Error(`Judge0 polling failed: ${response.status} ${body}`);
+    if (!resultResponse.ok) {
+      const body = await resultResponse.text();
+
+      throw new Error(
+        `Judge0 result request failed: ${resultResponse.status} ${body}`,
+      );
     }
 
-    const result = (await response.json()) as ExecutionResult;
+    const result =
+      (await resultResponse.json()) as ExecutionResult;
 
-    // Status 1 = In Queue
-    // Status 2 = Processing
-    if (!JUDGE0_PENDING_STATUSES.has(result.status.id)) {
-      return decodeExecutionResult(result);
+    console.log(
+      `Judge0 poll ${attempt}: ${result.status.description}`,
+    );
+
+    // ------------------------------------------------
+    // Judge0 status:
+    //
+    // 1 = In Queue
+    // 2 = Processing
+    //
+    // These are NOT final results.
+    // ------------------------------------------------
+
+    if (
+      result.status.id === 1 ||
+      result.status.id === 2
+    ) {
+      await sleep(pollInterval);
+
+      continue;
     }
 
-    await sleep(POLL_INTERVAL_MS);
+    // ------------------------------------------------
+    // 3. Judge0 has reached a final state
+    // ------------------------------------------------
+
+    console.log(
+      "=== FINAL RAW JUDGE0 RESULT ===",
+    );
+
+    console.dir(result, {
+      depth: null,
+    });
+
+    // ------------------------------------------------
+    // 4. Decode Base64 response fields
+    // ------------------------------------------------
+
+    const decodedResult: ExecutionResult = {
+      ...result,
+
+      stdout: decodeBase64(result.stdout),
+
+      stderr: decodeBase64(result.stderr),
+
+      compile_output: decodeBase64(
+        result.compile_output,
+      ),
+
+      message: decodeBase64(result.message),
+    };
+
+    console.log(
+      "=== DECODED JUDGE0 RESULT ===",
+    );
+
+    console.dir(decodedResult, {
+      depth: null,
+    });
+
+    // ------------------------------------------------
+    // 5. Return final result to BullMQ worker
+    // ------------------------------------------------
+
+    return decodedResult;
   }
 
+  // ------------------------------------------------
+  // Judge0 never reached a final state
+  // ------------------------------------------------
+
   throw new Error(
-    `Judge0 polling timed out after ${MAX_POLL_TIME_MS}ms for token ${token}`,
+    `Judge0 polling timed out for token ${created.token}`,
   );
 }

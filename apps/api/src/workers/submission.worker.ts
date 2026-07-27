@@ -85,6 +85,21 @@ export const submissionWorker = new Worker(
 
         console.log(`Judge0 status: ${result.status.description}`);
 
+        if (result.compile_output) {
+          console.log("=== COMPILER OUTPUT ===");
+          console.log(result.compile_output);
+        }
+        
+        if (result.stderr) {
+          console.log("=== STDERR ===");
+          console.log(result.stderr);
+        }
+        
+        if (result.message) {
+          console.log("=== JUDGE0 MESSAGE ===");
+          console.log(result.message);
+        }
+
         // ------------------------------------------------
         // Collect execution metrics
         // ------------------------------------------------

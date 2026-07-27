@@ -189,3 +189,90 @@ export async function getProblemSubmissionsService(
     },
   };
 }
+
+export async function createContestSubmissionService(
+  userId: string,
+  contestSlug: string,
+  problemSlug: string,
+  sourceCode: string,
+  language: ProgrammingLanguage,
+) {
+  // 1. Find contest
+  const contest = await prismaClient.contest.findUnique({
+    where: {
+      slug: contestSlug,
+    },
+    select: {
+      id: true,
+      startTime: true,
+      endTime: true,
+    },
+  });
+
+  if (!contest) {
+    throw new AppError("Contest not found", 404);
+  }
+
+  // 2. Check contest timing
+  const now = new Date();
+
+  if (now < contest.startTime) {
+    throw new AppError("Contest has not started yet", 403);
+  }
+
+  if (now >= contest.endTime) {
+    throw new AppError("Contest has already ended", 403);
+  }
+
+  // 3. Check whether user is registered
+  const registration = await prismaClient.contestRegistration.findUnique({
+    where: {
+      contestId_userId: {
+        contestId: contest.id,
+        userId,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!registration) {
+    throw new AppError("You are not registered for this contest", 403);
+  }
+
+  // 4. Check whether problem belongs to contest
+  const contestProblem = await prismaClient.contestProblem.findFirst({
+    where: {
+      contestId: contest.id,
+      problem: {
+        slug: problemSlug,
+      },
+    },
+    select: {
+      problemId: true,
+    },
+  });
+
+  if (!contestProblem) {
+    throw new AppError("Problem does not belong to this contest", 404);
+  }
+
+  // 5. Create contest submission
+  const submission = await prismaClient.submission.create({
+    data: {
+      userId,
+      problemId: contestProblem.problemId,
+      contestId: contest.id,
+      sourceCode,
+      language,
+    },
+  });
+
+  // 6. Reuse existing BullMQ judging pipeline
+  await submissionQueue.add("judge-submission", {
+    submissionId: submission.id,
+  });
+
+  return submission;
+}

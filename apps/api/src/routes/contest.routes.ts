@@ -13,6 +13,7 @@ import {
   getContestsController,
   registerForContestController,
 } from "../controllers/contest.controller";
+import { createContestSubmissionController } from "../controllers/submission.controller";
 
 const contestRouter = Router();
 
@@ -42,5 +43,12 @@ contestRouter.post(
   csrfMiddleware,
   registerForContestController,
 );
+
+contestRouter.post(
+    "/:contestSlug/problems/:problemSlug/submissions",
+    authMiddleware,
+    csrfMiddleware,
+    createContestSubmissionController,
+  );
 
 export default contestRouter;

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { createSubmissionSchema } from "../schemas/schemas";
 import {
+  createContestSubmissionService,
   createSubmissionService,
   getProblemSubmissionsService,
   getSubmissionByIdService,
@@ -150,6 +151,60 @@ export async function getProblemSubmissionsController(
     );
 
     return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createContestSubmissionController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const parsed = createSubmissionSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Invalid submission data",
+    });
+  }
+
+  try {
+    const userId = req.userId;
+    const { contestSlug, problemSlug } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    if (typeof contestSlug !== "string") {
+      return res.status(400).json({
+        error: "Contest slug is required",
+      });
+    }
+
+    if (typeof problemSlug !== "string") {
+      return res.status(400).json({
+        error: "Problem slug is required",
+      });
+    }
+
+    const { sourceCode, language } = parsed.data;
+
+    const submission = await createContestSubmissionService(
+      userId,
+      contestSlug,
+      problemSlug,
+      sourceCode,
+      language,
+    );
+
+    return res.status(201).json({
+      message: "Contest submission created successfully",
+      submission,
+    });
   } catch (error) {
     next(error);
   }
