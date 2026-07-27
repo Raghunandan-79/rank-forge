@@ -31,6 +31,7 @@ async function request(method: string, path: string, options: RequestOptions = {
   }
 
   const response = await fetch(url, {
+    cache: "no-store",
     ...options,
     method,
     headers,
@@ -61,5 +62,6 @@ export const api = {
   get: (path: string, options?: RequestOptions) => request("GET", path, options),
   post: (path: string, body?: any, options?: RequestOptions) => request("POST", path, { ...options, json: body }),
   put: (path: string, body?: any, options?: RequestOptions) => request("PUT", path, { ...options, json: body }),
+  patch: (path: string, body?: any, options?: RequestOptions) => request("PATCH", path, { ...options, json: body }),
   delete: (path: string, options?: RequestOptions) => request("DELETE", path, options),
 };

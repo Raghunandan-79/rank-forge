@@ -9,7 +9,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Badge } from "../../components/ui/badge";
-import { Plus, Trophy, Code2, ShieldAlert, Key, FolderGit, Calendar, ArrowRight, Settings } from "lucide-react";
+import { Plus, Trophy, Code2, ShieldAlert, Key, FolderGit, Calendar, ArrowRight, Settings, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
@@ -30,10 +30,18 @@ interface Problem {
   difficulty: "EASY" | "MEDIUM" | "HARD";
 }
 
+interface UserProfile {
+  id: string;
+  username: string;
+  email: string;
+  role: "USER" | "PROBLEM_SETTER" | "ADMIN";
+}
+
 export default function AdminDashboardPage() {
   const { user, loading } = useAuth();
   const [contests, setContests] = useState<Contest[]>([]);
   const [problems, setProblems] = useState<Problem[]>([]);
+  const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   // State for Add Problem to Contest dialog
@@ -43,16 +51,27 @@ export default function AdminDashboardPage() {
   const [assocPoints, setAssocPoints] = useState("100");
   const [associating, setAssociating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
 
   const fetchDashboardData = async () => {
     try {
       setLoadingData(true);
-      const [contestsRes, problemsRes] = await Promise.all([
+      const promises: Promise<any>[] = [
         api.get("/contests"),
         api.get("/problems"),
-      ]);
+      ];
+
+      if (user && user.role === "ADMIN") {
+        promises.push(api.get("/users"));
+      }
+
+      const [contestsRes, problemsRes, usersRes] = await Promise.all(promises);
       setContests(contestsRes.contests || []);
       setProblems(problemsRes.problems || []);
+
+      if (usersRes) {
+        setUsersList(usersRes.users || []);
+      }
     } catch (err: any) {
       toast.error("Failed to load dashboard data: " + err.message);
     } finally {
@@ -125,10 +144,27 @@ export default function AdminDashboardPage() {
       setAssocProblemSlug("");
       setAssocIndex("");
       setAssocPoints("100");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to associate problem to contest");
     } finally {
       setAssociating(false);
+    }
+  };
+
+  const handleUpdateRole = async (userId: string, newRole: "USER" | "PROBLEM_SETTER" | "ADMIN") => {
+    if (userId === user?.id) {
+      toast.error("You cannot change your own role to prevent lockout.");
+      return;
+    }
+    setUpdatingRoleId(userId);
+    try {
+      await api.patch(`/users/${userId}/role`, { role: newRole });
+      toast.success("User role updated successfully!");
+      setUsersList((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update role");
+    } finally {
+      setUpdatingRoleId(null);
     }
   };
 
@@ -296,6 +332,86 @@ export default function AdminDashboardPage() {
                                 Test Cases
                               </Button>
                             </Link>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {user.role === "ADMIN" && (
+          <div className="mt-8">
+            <Card className="border-border bg-card/30 backdrop-blur-sm">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 mb-2">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <Users className="h-5 w-5 text-emerald-400" />
+                    User Access Management
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Manage roles and permissions for RankForge members (promote users to Problem Setters or Admins).
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {usersList.length === 0 ? (
+                  <div className="text-center p-12 text-sm text-zinc-500">
+                    No other users found.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border/40 hover:bg-transparent">
+                        <TableHead>Username</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Current Role</TableHead>
+                        <TableHead className="text-right">Modify Role</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {usersList.map((u) => (
+                        <TableRow key={u.id} className="border-border/30 hover:bg-zinc-800/10">
+                          <TableCell className="font-semibold text-sm text-zinc-200">
+                            {u.username} {u.id === user.id && <span className="text-[10px] text-zinc-500 ml-1">(You)</span>}
+                          </TableCell>
+                          <TableCell className="text-sm text-zinc-400 font-mono">
+                            {u.email}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={
+                                u.role === "ADMIN"
+                                  ? "border-rose-500/20 text-rose-400 bg-rose-500/5"
+                                  : u.role === "PROBLEM_SETTER"
+                                  ? "border-purple-500/20 text-purple-400 bg-purple-500/5"
+                                  : "border-zinc-500/20 text-zinc-400 bg-zinc-500/5"
+                              }
+                            >
+                              {u.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {u.id === user.id ? (
+                              <span className="text-xs text-zinc-500">Locked</span>
+                            ) : (
+                              <div className="flex justify-end items-center gap-2">
+                                <select
+                                  value={u.role}
+                                  disabled={updatingRoleId === u.id}
+                                  onChange={(e) => handleUpdateRole(u.id, e.target.value as any)}
+                                  className="bg-black/40 border border-border rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 cursor-pointer"
+                                >
+                                  <option value="USER" className="bg-[#151515]">User</option>
+                                  <option value="PROBLEM_SETTER" className="bg-[#151515]">Problem Setter</option>
+                                  <option value="ADMIN" className="bg-[#151515]">Admin</option>
+                                </select>
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

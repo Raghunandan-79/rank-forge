@@ -97,3 +97,9 @@ export const addContestProblemSchema = z
   .strict();
 
 export type AddContestProblemInput = z.infer<typeof addContestProblemSchema>;
+
+export const updateUserRoleSchema = z
+  .object({
+    role: z.enum(["USER", "PROBLEM_SETTER", "ADMIN"]),
+  })
+  .strict();
