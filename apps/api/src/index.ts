@@ -40,8 +40,10 @@ app.use("/api/v1/users", userRouter);
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
 
-app.listen(3000, async () => {
-  console.log("Server is running on port 3000");
+const PORT = Number(process.env.PORT) || 3000;
+
+app.listen(PORT, "0.0.0.0", async () => {
+  console.log(`Server is running on port ${PORT}`);
 
   const response = await redis.ping();
   console.log("Redis:", response);
