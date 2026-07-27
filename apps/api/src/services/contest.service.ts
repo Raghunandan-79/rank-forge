@@ -486,18 +486,13 @@ export async function getContestStandingsService(slug: string) {
 
   const standings = Array.from(users.values())
   .sort((a, b) => {
-    // Higher score ranks first
+    // Higher score first
     if (b.score !== a.score) {
       return b.score - a.score;
     }
 
-    // Same score -> lower penalty ranks first
-    if (a.penalty !== b.penalty) {
-      return a.penalty - b.penalty;
-    }
-
-    // Deterministic fallback
-    return a.username.localeCompare(b.username);
+    // Same score -> lower penalty first
+    return a.penalty - b.penalty;
   })
   .map((user, index) => ({
     rank: index + 1,

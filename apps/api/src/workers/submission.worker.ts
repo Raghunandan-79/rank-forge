@@ -267,7 +267,7 @@ export const submissionWorker = new Worker(
 
       console.log(`Submission accepted: ${submission.id}`);
       console.log(`Tests: ${passedTests}/${totalTests}`);
-      console.log(`Execution time: ${totalExecutionTime}s`);
+      console.log(`Execution time: ${totalExecutionTime.toFixed(3)}s`);
       console.log(`Max memory: ${maxMemory} KB`);
     } catch (error) {
       console.error(`Error judging submission ${submission.id}:`, error);
@@ -518,6 +518,23 @@ async function awardContestPoints(
     `leaderboard:contest:${contestId}`,
     contestProblem.points,
     userId,
+  );
+
+  await redis.zincrby(
+    `leaderboard:contest:${contestId}`,
+    contestProblem.points,
+    userId,
+  );
+
+  // Notify SSE clients that standings changed
+  await redis.publish(
+    `contest:${contestId}:standings`,
+    JSON.stringify({
+      type: "STANDINGS_UPDATED",
+      contestId,
+      userId,
+      problemId,
+    }),
   );
 
   console.log(

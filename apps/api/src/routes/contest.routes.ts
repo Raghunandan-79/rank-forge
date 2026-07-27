@@ -16,6 +16,7 @@ import {
   registerForContestController,
 } from "../controllers/contest.controller";
 import { createContestSubmissionController } from "../controllers/submission.controller";
+import { contestStandingsStreamController } from "../controllers/contest-stream.controller";
 
 const contestRouter = Router();
 
@@ -40,6 +41,11 @@ contestRouter.post(
 contestRouter.get("/:slug/leaderboard", getContestLeaderboardController);
 
 contestRouter.get("/:slug/standings", getContestStandingsController);
+
+contestRouter.get(
+  "/:slug/standings/stream",
+  contestStandingsStreamController,
+);
 
 contestRouter.get("/:slug", getContestBySlugController);
 
