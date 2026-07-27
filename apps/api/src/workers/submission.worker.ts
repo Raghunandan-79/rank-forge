@@ -119,25 +119,16 @@ export const submissionWorker = new Worker(
         if (result.status.id === 6) {
           await updateFinalResult(
             submission.id,
-            "ACCEPTED",
+            "COMPILATION_ERROR",
             passedTests,
             totalTests,
             totalExecutionTime,
             maxMemory,
           );
 
-          if (submission.contestId) {
-            await awardContestPoints(
-              submission.contestId,
-              submission.userId,
-              submission.problemId,
-            );
-          }
+          console.log(`Compilation error: ${submission.id}`);
 
-          console.log(`Submission accepted: ${submission.id}`);
-          console.log(`Tests: ${passedTests}/${totalTests}`);
-          console.log(`Execution time: ${totalExecutionTime.toFixed(3)}s`);
-          console.log(`Max memory: ${maxMemory} KB`);
+          return;
         }
 
         // ------------------------------------------------
@@ -227,6 +218,14 @@ export const submissionWorker = new Worker(
             totalExecutionTime,
             maxMemory,
           );
+
+          if (submission.contestId) {
+            await recordWrongContestAttempt(
+              submission.contestId,
+              submission.userId,
+              submission.problemId,
+            );
+          }
 
           console.log(`Wrong answer on test case: ${testCase.id}`);
 
@@ -330,6 +329,61 @@ async function updateFinalResult(
   });
 }
 
+async function recordWrongContestAttempt(
+  contestId: string,
+  userId: string,
+  problemId: string,
+) {
+  // If already solved, later wrong submissions must not affect penalty.
+  const alreadySolved = await prismaClient.contestScore.findUnique({
+    where: {
+      contestId_userId_problemId: {
+        contestId,
+        userId,
+        problemId,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (alreadySolved) {
+    console.log(
+      `Ignoring wrong attempt after solve: user=${userId}, problem=${problemId}`,
+    );
+
+    return;
+  }
+
+  const attempt = await prismaClient.contestProblemAttempt.upsert({
+    where: {
+      contestId_userId_problemId: {
+        contestId,
+        userId,
+        problemId,
+      },
+    },
+
+    create: {
+      contestId,
+      userId,
+      problemId,
+      wrongAttempts: 1,
+    },
+
+    update: {
+      wrongAttempts: {
+        increment: 1,
+      },
+    },
+  });
+
+  console.log(
+    `Wrong contest attempt recorded: user=${userId}, problem=${problemId}, attempts=${attempt.wrongAttempts}`,
+  );
+}
+
 async function awardContestPoints(
   contestId: string,
   userId: string,
@@ -344,6 +398,12 @@ async function awardContestPoints(
     },
     select: {
       points: true,
+
+      contest: {
+        select: {
+          startTime: true,
+        },
+      },
     },
   });
 
@@ -351,22 +411,21 @@ async function awardContestPoints(
     throw new Error("Problem does not belong to this contest");
   }
 
-  // PostgreSQL is the source of truth.
-  // Unique constraint prevents duplicate points.
-  const result = await prismaClient.contestScore.createMany({
-    data: [
-      {
+  // ---------------------------------------------
+  // Already solved?
+  // ---------------------------------------------
+
+  const existingScore = await prismaClient.contestScore.findUnique({
+    where: {
+      contestId_userId_problemId: {
         contestId,
         userId,
         problemId,
-        points: contestProblem.points,
       },
-    ],
-    skipDuplicates: true,
+    },
   });
 
-  // Already solved before → don't increment Redis again.
-  if (result.count === 0) {
+  if (existingScore) {
     console.log(
       `Contest points already awarded: user=${userId}, problem=${problemId}`,
     );
@@ -374,13 +433,95 @@ async function awardContestPoints(
     return;
   }
 
-  // Update Redis leaderboard
-  const leaderboardKey = `leaderboard:contest:${contestId}`;
+  // ---------------------------------------------
+  // Get wrong attempts before AC
+  // ---------------------------------------------
 
-  await redis.zincrby(leaderboardKey, contestProblem.points, userId);
+  const attempt = await prismaClient.contestProblemAttempt.findUnique({
+    where: {
+      contestId_userId_problemId: {
+        contestId,
+        userId,
+        problemId,
+      },
+    },
+    select: {
+      wrongAttempts: true,
+    },
+  });
+
+  const wrongAttempts = attempt?.wrongAttempts ?? 0;
+
+  // ---------------------------------------------
+  // Calculate solve-time penalty
+  // ---------------------------------------------
+
+  const solvedAt = new Date();
+
+  const elapsedMs =
+    solvedAt.getTime() - contestProblem.contest.startTime.getTime();
+
+  const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
+
+  const WRONG_ATTEMPT_PENALTY = 20;
+
+  const penalty = elapsedMinutes + wrongAttempts * WRONG_ATTEMPT_PENALTY;
+
+  // ---------------------------------------------
+  // Store score
+  // ---------------------------------------------
+
+  try {
+    await prismaClient.contestScore.create({
+      data: {
+        contestId,
+        userId,
+        problemId,
+
+        points: contestProblem.points,
+
+        penalty,
+
+        solvedAt,
+      },
+    });
+  } catch (error) {
+    // Another worker may have awarded it concurrently.
+    // Unique constraint prevents duplicate scoring.
+
+    const existing = await prismaClient.contestScore.findUnique({
+      where: {
+        contestId_userId_problemId: {
+          contestId,
+          userId,
+          problemId,
+        },
+      },
+    });
+
+    if (existing) {
+      console.log(
+        `Contest points already awarded: user=${userId}, problem=${problemId}`,
+      );
+
+      return;
+    }
+
+    throw error;
+  }
+
+  // ---------------------------------------------
+  // Update Redis score leaderboard
+  // ---------------------------------------------
+
+  await redis.zincrby(
+    `leaderboard:contest:${contestId}`,
+    contestProblem.points,
+    userId,
+  );
 
   console.log(
-    `Contest points awarded: user=${userId}, problem=${problemId}, points=${contestProblem.points}`,
+    `Contest points awarded: user=${userId}, problem=${problemId}, points=${contestProblem.points}, wrongAttempts=${wrongAttempts}, penalty=${penalty}`,
   );
 }
 

@@ -381,6 +381,7 @@ export async function getContestStandingsService(slug: string) {
           userId: true,
           problemId: true,
           points: true,
+          penalty: true,
           solvedAt: true,
 
           user: {
@@ -407,18 +408,19 @@ export async function getContestStandingsService(slug: string) {
       userId: string;
       username: string;
       score: number;
+      penalty: number;
 
       problems: Record<
         string,
         {
           solved: boolean;
           points: number;
+          penalty: number;
           solvedAt: Date | null;
         }
       >;
     }
   >();
-
   // ---------------------------------------------
   // Add every registered user
   // They initially have 0 points
@@ -429,6 +431,7 @@ export async function getContestStandingsService(slug: string) {
       userId: registration.userId,
       username: registration.user.username,
       score: 0,
+      penalty: 0,
       problems: {},
     });
   }
@@ -447,6 +450,7 @@ export async function getContestStandingsService(slug: string) {
         userId: score.userId,
         username: score.user.username,
         score: 0,
+        penalty: 0,
         problems: {},
       };
 
@@ -455,6 +459,7 @@ export async function getContestStandingsService(slug: string) {
 
     // Add score
     standing.score += score.points;
+    standing.penalty += score.penalty;
 
     // Find A / B / C / ...
     const contestProblem = contest.problems.find(
@@ -469,6 +474,7 @@ export async function getContestStandingsService(slug: string) {
     standing.problems[contestProblem.index] = {
       solved: true,
       points: score.points,
+      penalty: score.penalty,
       solvedAt: score.solvedAt,
     };
   }
@@ -479,11 +485,24 @@ export async function getContestStandingsService(slug: string) {
   // ---------------------------------------------
 
   const standings = Array.from(users.values())
-    .sort((a, b) => b.score - a.score)
-    .map((user, index) => ({
-      rank: index + 1,
-      ...user,
-    }));
+  .sort((a, b) => {
+    // Higher score ranks first
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+
+    // Same score -> lower penalty ranks first
+    if (a.penalty !== b.penalty) {
+      return a.penalty - b.penalty;
+    }
+
+    // Deterministic fallback
+    return a.username.localeCompare(b.username);
+  })
+  .map((user, index) => ({
+    rank: index + 1,
+    ...user,
+  }));
 
   // ---------------------------------------------
   // Response
