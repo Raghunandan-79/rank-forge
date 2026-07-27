@@ -89,6 +89,7 @@ export async function meController(
 
     return res.status(200).json({
       user,
+      csrfToken: req.csrfToken,
     });
   } catch (error) {
     next(error);
