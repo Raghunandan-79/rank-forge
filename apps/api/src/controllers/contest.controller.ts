@@ -9,6 +9,7 @@ import {
   addContestProblemService,
   createContestService,
   getContestBySlugService,
+  getContestLeaderboardService,
   getContestsService,
   registerForContestService,
 } from "../services/contest.service";
@@ -146,6 +147,28 @@ export async function registerForContestController(
       message: "Registered for contest successfully",
       registration,
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getContestLeaderboardController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { slug } = req.params;
+
+    if (typeof slug !== "string") {
+      return res.status(400).json({
+        error: "Contest slug is required",
+      });
+    }
+
+    const result = await getContestLeaderboardService(slug);
+
+    return res.status(200).json(result);
   } catch (error) {
     next(error);
   }

@@ -10,6 +10,7 @@ import {
   addContestProblemController,
   createContestController,
   getContestBySlugController,
+  getContestLeaderboardController,
   getContestsController,
   registerForContestController,
 } from "../controllers/contest.controller";
@@ -35,6 +36,8 @@ contestRouter.post(
   addContestProblemController,
 );
 
+contestRouter.get("/:slug/leaderboard", getContestLeaderboardController);
+
 contestRouter.get("/:slug", getContestBySlugController);
 
 contestRouter.post(
@@ -45,10 +48,10 @@ contestRouter.post(
 );
 
 contestRouter.post(
-    "/:contestSlug/problems/:problemSlug/submissions",
-    authMiddleware,
-    csrfMiddleware,
-    createContestSubmissionController,
-  );
+  "/:contestSlug/problems/:problemSlug/submissions",
+  authMiddleware,
+  csrfMiddleware,
+  createContestSubmissionController,
+);
 
 export default contestRouter;

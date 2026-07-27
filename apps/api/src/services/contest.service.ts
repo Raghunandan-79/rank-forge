@@ -3,6 +3,7 @@ import type {
   AddContestProblemInput,
   CreateContestInput,
 } from "../schemas/schemas";
+import { bullmqRedis, redis } from "../config/redis";
 
 export async function createContestService(data: CreateContestInput) {
   const existingContest = await prismaClient.contest.findUnique({
@@ -213,4 +214,145 @@ export async function registerForContestService(
       },
     },
   });
+}
+
+export async function getContestLeaderboardService(slug: string) {
+    const contest = await prismaClient.contest.findUnique({
+      where: {
+        slug,
+      },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+      },
+    });
+  
+    if (!contest) {
+      throw new Error("Contest not found");
+    }
+  
+    const leaderboardKey = `leaderboard:contest:${contest.id}`;
+  
+    // ---------------------------------------------
+    // Try Redis first
+    // ---------------------------------------------
+  
+    let redisLeaderboard = await redis.zrevrange(
+      leaderboardKey,
+      0,
+      -1,
+      "WITHSCORES",
+    );
+  
+    // ---------------------------------------------
+    // Redis empty -> rebuild from PostgreSQL
+    // ---------------------------------------------
+  
+    if (redisLeaderboard.length === 0) {
+      await rebuildContestLeaderboard(contest.id);
+  
+      redisLeaderboard = await redis.zrevrange(
+        leaderboardKey,
+        0,
+        -1,
+        "WITHSCORES",
+      );
+    }
+  
+    // ---------------------------------------------
+    // Convert Redis response
+    // [userId, score, userId, score, ...]
+    // ---------------------------------------------
+  
+    const entries: {
+      userId: string;
+      score: number;
+    }[] = [];
+  
+    for (let i = 0; i < redisLeaderboard.length; i += 2) {
+      const userId = redisLeaderboard[i];
+      const score = redisLeaderboard[i + 1];
+  
+      if (!userId || score === undefined) {
+        continue;
+      }
+  
+      entries.push({
+        userId,
+        score: Number(score),
+      });
+    }
+  
+    // ---------------------------------------------
+    // Fetch usernames
+    // ---------------------------------------------
+  
+    const users = await prismaClient.user.findMany({
+      where: {
+        id: {
+          in: entries.map((entry) => entry.userId),
+        },
+      },
+      select: {
+        id: true,
+        username: true,
+      },
+    });
+  
+    const usernameMap = new Map(
+      users.map((user) => [user.id, user.username]),
+    );
+  
+    // ---------------------------------------------
+    // Final leaderboard
+    // ---------------------------------------------
+  
+    const leaderboard = entries.map((entry, index) => ({
+      rank: index + 1,
+      userId: entry.userId,
+      username: usernameMap.get(entry.userId) ?? "Unknown",
+      score: entry.score,
+    }));
+  
+    return {
+      contest: {
+        title: contest.title,
+        slug: contest.slug,
+      },
+      leaderboard,
+    };
+  }
+
+export async function rebuildContestLeaderboard(contestId: string) {
+  const scores = await prismaClient.contestScore.groupBy({
+    by: ["userId"],
+    where: {
+      contestId,
+    },
+    _sum: {
+      points: true,
+    },
+  });
+
+  const key = `leaderboard:contest:${contestId}`;
+
+  // Remove stale Redis leaderboard
+  await redis.del(key);
+
+  if (scores.length === 0) {
+    return;
+  }
+
+  const pipeline = redis.pipeline();
+
+  for (const score of scores) {
+    pipeline.zadd(key, score._sum.points ?? 0, score.userId);
+  }
+
+  await pipeline.exec();
+
+  console.log(
+    `Leaderboard rebuilt: contest=${contestId}, users=${scores.length}`,
+  );
 }

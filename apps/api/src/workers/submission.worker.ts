@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 import { prismaClient } from "@repo/db/client";
-import { bullmqRedis } from "../config/redis";
+import { bullmqRedis, redis } from "../config/redis";
 import { executeCode } from "../services/code-execution.service";
 
 export const submissionWorker = new Worker(
@@ -119,16 +119,25 @@ export const submissionWorker = new Worker(
         if (result.status.id === 6) {
           await updateFinalResult(
             submission.id,
-            "COMPILATION_ERROR",
+            "ACCEPTED",
             passedTests,
             totalTests,
             totalExecutionTime,
             maxMemory,
           );
 
-          console.log(`Compilation error: ${submission.id}`);
+          if (submission.contestId) {
+            await awardContestPoints(
+              submission.contestId,
+              submission.userId,
+              submission.problemId,
+            );
+          }
 
-          return;
+          console.log(`Submission accepted: ${submission.id}`);
+          console.log(`Tests: ${passedTests}/${totalTests}`);
+          console.log(`Execution time: ${totalExecutionTime}s`);
+          console.log(`Max memory: ${maxMemory} KB`);
         }
 
         // ------------------------------------------------
@@ -342,8 +351,8 @@ async function awardContestPoints(
     throw new Error("Problem does not belong to this contest");
   }
 
-  // createMany + skipDuplicates makes awarding idempotent.
-  // The DB unique constraint is the final protection against double scoring.
+  // PostgreSQL is the source of truth.
+  // Unique constraint prevents duplicate points.
   const result = await prismaClient.contestScore.createMany({
     data: [
       {
@@ -356,6 +365,7 @@ async function awardContestPoints(
     skipDuplicates: true,
   });
 
+  // Already solved before → don't increment Redis again.
   if (result.count === 0) {
     console.log(
       `Contest points already awarded: user=${userId}, problem=${problemId}`,
@@ -363,6 +373,11 @@ async function awardContestPoints(
 
     return;
   }
+
+  // Update Redis leaderboard
+  const leaderboardKey = `leaderboard:contest:${contestId}`;
+
+  await redis.zincrby(leaderboardKey, contestProblem.points, userId);
 
   console.log(
     `Contest points awarded: user=${userId}, problem=${problemId}, points=${contestProblem.points}`,
