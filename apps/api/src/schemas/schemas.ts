@@ -54,3 +54,44 @@ export const createSubmissionSchema = z
     language: z.enum(["C", "CPP", "JAVA", "PYTHON", "JAVASCRIPT"]),
   })
   .strict();
+
+export const createContestSchema = z
+  .object({
+    title: z.string().min(3).max(100),
+
+    slug: z
+      .string()
+      .min(3)
+      .max(100)
+      .regex(
+        /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+        "Slug must contain lowercase letters, numbers and hyphens only",
+      ),
+
+    description: z.string().min(10).max(5000),
+
+    startTime: z.coerce.date(),
+    endTime: z.coerce.date(),
+  })
+  .refine((data) => data.endTime > data.startTime, {
+    message: "End time must be after start time",
+    path: ["endTime"],
+  });
+
+export type CreateContestInput = z.infer<typeof createContestSchema>;
+
+export const addContestProblemSchema = z
+  .object({
+    problemSlug: z.string().min(1).max(150),
+
+    index: z
+      .string()
+      .min(1)
+      .max(3)
+      .transform((value) => value.toUpperCase()),
+
+    points: z.number().int().positive().default(100),
+  })
+  .strict();
+
+export type AddContestProblemInput = z.infer<typeof addContestProblemSchema>;
