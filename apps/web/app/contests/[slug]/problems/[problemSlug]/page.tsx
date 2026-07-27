@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../../components/ui/select";
 import Editor from "@monaco-editor/react";
 import { toast } from "sonner";
+import { useCodeStore } from "../../../../../store/use-code-store";
 import {
   ArrowLeft,
   Code2,
@@ -100,10 +101,12 @@ export default function ProblemSolvingPage() {
   const contestSlug = params?.slug as string;
   const problemSlug = params?.problemSlug as string;
 
+  const { setCode: persistCode, getCode } = useCodeStore();
+
   const [problem, setProblem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedLanguage, setSelectedLanguage] = useState<ProgrammingLang>("PYTHON");
-  const [code, setCode] = useState<string>(LANGUAGE_TEMPLATES.PYTHON);
+  const [code, setCode] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -136,6 +139,18 @@ export default function ProblemSolvingPage() {
     }
   }, [user, authLoading, fetchProblemData, router]);
 
+  // Load code from persistence store or fallback template
+  useEffect(() => {
+    if (problem) {
+      const stored = getCode(contestSlug, problemSlug, selectedLanguage);
+      if (stored) {
+        setCode(stored);
+      } else {
+        setCode(LANGUAGE_TEMPLATES[selectedLanguage]);
+      }
+    }
+  }, [problem, selectedLanguage, contestSlug, problemSlug, getCode]);
+
   // Clean up poll interval on unmount
   useEffect(() => {
     return () => {
@@ -146,7 +161,17 @@ export default function ProblemSolvingPage() {
   const handleLanguageChange = (value: string) => {
     const lang = value as ProgrammingLang;
     setSelectedLanguage(lang);
-    setCode(LANGUAGE_TEMPLATES[lang]);
+    const stored = getCode(contestSlug, problemSlug, lang);
+    if (stored) {
+      setCode(stored);
+    } else {
+      setCode(LANGUAGE_TEMPLATES[lang]);
+    }
+  };
+
+  const handleCodeChange = (value: string) => {
+    setCode(value);
+    persistCode(contestSlug, problemSlug, selectedLanguage, value);
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -166,7 +191,8 @@ export default function ProblemSolvingPage() {
         const res = await api.get(`/submissions/${submissionId}`);
         const sub = res.submission;
 
-        if (sub.status !== "PENDING" || attempts > 30) {
+        // Poll as long as state is PENDING or PROCESSING
+        if ((sub.status !== "PENDING" && sub.status !== "PROCESSING") || attempts > 30) {
           clearInterval(pollIntervalRef.current);
           setSubmissionResult({ ...sub, isRunOnly });
           setPollingStatus(null);
@@ -377,7 +403,7 @@ export default function ProblemSolvingPage() {
               language={MONACO_LANG_MAP[selectedLanguage]}
               theme="vs-dark"
               value={code}
-              onChange={(val) => setCode(val || "")}
+              onChange={(val) => handleCodeChange(val || "")}
               options={{
                 minimap: { enabled: false },
                 fontSize: 14,
@@ -429,34 +455,77 @@ export default function ProblemSolvingPage() {
 
             {/* Judging Result Summary Card */}
             {submissionResult && (
-              <div className={`p-4 rounded-lg border text-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                submissionResult.status === "ACCEPTED"
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
-                  : "bg-rose-500/10 border-rose-500/20 text-rose-500"
-              }`}>
-                <div className="flex items-start gap-3">
-                  {submissionResult.status === "ACCEPTED" ? (
-                    <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                  ) : (
-                    <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                  )}
-                  <div className="space-y-1">
-                    <div className="font-bold flex items-center gap-2">
-                      <span>
-                        {submissionResult.isRunOnly ? "Run Result" : "Submission Result"}: {submissionResult.status.replace("_", " ")}
-                      </span>
-                      <Badge variant="outline" className={`text-[10px] uppercase font-mono ${
-                        submissionResult.status === "ACCEPTED" ? "border-emerald-500/30 text-emerald-500" : "border-rose-500/30 text-rose-500"
-                      }`}>
-                        {submissionResult.passedTests} / {submissionResult.totalTests} Passed
-                      </Badge>
-                    </div>
-                    <div className="text-xs opacity-90">
-                      Execution Time: {submissionResult.executionTime != null ? `${submissionResult.executionTime.toFixed(3)}s` : "N/A"} | 
-                      Memory Used: {submissionResult.memoryUsed != null ? `${(submissionResult.memoryUsed / 1024).toFixed(1)} MB` : "N/A"}
+              <div className="space-y-3">
+                <div className={`p-4 rounded-lg border text-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                  submissionResult.status === "ACCEPTED"
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                    : "bg-rose-500/10 border-rose-500/20 text-rose-500"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    {submissionResult.status === "ACCEPTED" ? (
+                      <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    )}
+                    <div className="space-y-1">
+                      <div className="font-bold flex items-center gap-2">
+                        <span>
+                          {submissionResult.isRunOnly ? "Run Result" : "Submission Result"}: {submissionResult.status.replace("_", " ")}
+                        </span>
+                        <Badge variant="outline" className={`text-[10px] uppercase font-mono ${
+                          submissionResult.status === "ACCEPTED" ? "border-emerald-500/30 text-emerald-500" : "border-rose-500/30 text-rose-500"
+                        }`}>
+                          {submissionResult.passedTests} / {submissionResult.totalTests} Passed
+                        </Badge>
+                      </div>
+                      <div className="text-xs opacity-90">
+                        Execution Time: {submissionResult.executionTime != null ? `${submissionResult.executionTime.toFixed(3)}s` : "N/A"} | 
+                        Memory Used: {submissionResult.memoryUsed != null ? `${(submissionResult.memoryUsed / 1024).toFixed(1)} MB` : "N/A"}
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Detailed Console Output */}
+                {submissionResult.output && (
+                  <div className="bg-[#1e1e1e] border border-border rounded-lg p-4 font-mono text-xs text-foreground space-y-3">
+                    {submissionResult.output.compileOutput && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Compilation Logs</span>
+                        <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-400 whitespace-pre-wrap max-h-40">
+                          {submissionResult.output.compileOutput}
+                        </pre>
+                      </div>
+                    )}
+
+                    {submissionResult.output.stderr && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Standard Error (stderr)</span>
+                        <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-400 whitespace-pre-wrap max-h-40">
+                          {submissionResult.output.stderr}
+                        </pre>
+                      </div>
+                    )}
+
+                    {submissionResult.output.stdout && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Standard Output (stdout)</span>
+                        <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-emerald-300 whitespace-pre-wrap max-h-40">
+                          {submissionResult.output.stdout}
+                        </pre>
+                      </div>
+                    )}
+
+                    {submissionResult.output.expectedOutput && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expected Output</span>
+                        <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-muted-foreground whitespace-pre-wrap max-h-40">
+                          {submissionResult.output.expectedOutput}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

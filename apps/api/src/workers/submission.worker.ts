@@ -70,10 +70,12 @@ export const submissionWorker = new Worker(
       // Run every test case
       // ------------------------------------------------
 
+      let result: any = null;
+
       for (const testCase of submission.problem.testCases) {
         console.log(`Running test case: ${testCase.id}`);
 
-        const result = await executeCode(
+        result = await executeCode(
           submission.sourceCode,
           submission.language,
           testCase.input,
@@ -124,6 +126,9 @@ export const submissionWorker = new Worker(
             totalTests,
             totalExecutionTime,
             maxMemory,
+            result.compile_output,
+            result.stderr,
+            result.stdout,
           );
 
           console.log(`Compilation error: ${submission.id}`);
@@ -143,6 +148,9 @@ export const submissionWorker = new Worker(
             totalTests,
             totalExecutionTime,
             maxMemory,
+            result.compile_output,
+            result.stderr,
+            result.stdout,
           );
 
           console.log(`Time limit exceeded: ${submission.id}`);
@@ -170,6 +178,9 @@ export const submissionWorker = new Worker(
             totalTests,
             totalExecutionTime,
             maxMemory,
+            result.compile_output,
+            result.stderr,
+            result.stdout,
           );
 
           console.log(`Runtime error: ${submission.id}`);
@@ -217,6 +228,10 @@ export const submissionWorker = new Worker(
             totalTests,
             totalExecutionTime,
             maxMemory,
+            result.compile_output,
+            result.stderr,
+            result.stdout,
+            testCase.expectedOutput,
           );
 
           if (submission.contestId) {
@@ -254,6 +269,9 @@ export const submissionWorker = new Worker(
         totalTests,
         totalExecutionTime,
         maxMemory,
+        result.compile_output,
+        result.stderr,
+        result.stdout,
       );
 
       // Award points only for contest submissions
@@ -313,6 +331,10 @@ async function updateFinalResult(
   totalTests: number,
   executionTime: number,
   memoryUsed: number,
+  compileOutput?: string | null,
+  stderr?: string | null,
+  stdout?: string | null,
+  expectedOutput?: string | null,
 ) {
   await prismaClient.submission.update({
     where: {
@@ -327,6 +349,22 @@ async function updateFinalResult(
       memoryUsed,
     },
   });
+
+  try {
+    await redis.set(
+      `submission:${submissionId}:output`,
+      JSON.stringify({
+        compileOutput: compileOutput ?? null,
+        stderr: stderr ?? null,
+        stdout: stdout ?? null,
+        expectedOutput: expectedOutput ?? null,
+      }),
+      "EX",
+      3600
+    );
+  } catch (err) {
+    console.error("Failed to store submission output in Redis:", err);
+  }
 }
 
 async function recordWrongContestAttempt(

@@ -1,6 +1,7 @@
 import { prismaClient, ProgrammingLanguage } from "@repo/db/client";
 import { AppError } from "../utils/app-error";
 import { submissionQueue } from "../queues/submission.queue";
+import { redis } from "../config/redis";
 
 export async function createSubmissionService(
   userId: string,
@@ -70,7 +71,20 @@ export async function getSubmissionByIdService(
     throw new Error("Submission not found");
   }
 
-  return submission;
+  let cachedOutput = null;
+  try {
+    const data = await redis.get(`submission:${submissionId}:output`);
+    if (data) {
+      cachedOutput = JSON.parse(data);
+    }
+  } catch (err) {
+    console.error("Failed to read submission output from Redis:", err);
+  }
+
+  return {
+    ...submission,
+    output: cachedOutput,
+  };
 }
 
 export async function getUserSubmissionsService(
