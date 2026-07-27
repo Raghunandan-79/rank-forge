@@ -10,6 +10,7 @@ import { Button } from "../../../../../components/ui/button";
 import { Badge } from "../../../../../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../../components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../../components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../../components/ui/tabs";
 import Editor from "@monaco-editor/react";
 import { toast } from "sonner";
 import { useCodeStore } from "../../../../../store/use-code-store";
@@ -455,7 +456,8 @@ export default function ProblemSolvingPage() {
 
             {/* Judging Result Summary Card */}
             {submissionResult && (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* Result header banner */}
                 <div className={`p-4 rounded-lg border text-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                   submissionResult.status === "ACCEPTED"
                     ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
@@ -469,59 +471,163 @@ export default function ProblemSolvingPage() {
                     )}
                     <div className="space-y-1">
                       <div className="font-bold flex items-center gap-2">
-                        <span>
-                          {submissionResult.isRunOnly ? "Run Result" : "Submission Result"}: {submissionResult.status.replace("_", " ")}
+                        <span className="text-base">
+                          {submissionResult.isRunOnly ? "Run Code" : "Submit Code"}: {submissionResult.status.replace("_", " ")}
                         </span>
-                        <Badge variant="outline" className={`text-[10px] uppercase font-mono ${
-                          submissionResult.status === "ACCEPTED" ? "border-emerald-500/30 text-emerald-500" : "border-rose-500/30 text-rose-500"
+                        <Badge variant="outline" className={`text-xs px-2 py-0.5 uppercase font-mono ${
+                          submissionResult.status === "ACCEPTED" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" : "border-rose-500/30 text-rose-500 bg-rose-500/5"
                         }`}>
                           {submissionResult.passedTests} / {submissionResult.totalTests} Passed
                         </Badge>
                       </div>
                       <div className="text-xs opacity-90">
-                        Execution Time: {submissionResult.executionTime != null ? `${submissionResult.executionTime.toFixed(3)}s` : "N/A"} | 
-                        Memory Used: {submissionResult.memoryUsed != null ? `${(submissionResult.memoryUsed / 1024).toFixed(1)} MB` : "N/A"}
+                        Execution Time: {submissionResult.executionTime != null ? `${(submissionResult.executionTime).toFixed(3)}s` : "N/A"} | 
+                        Memory Used: {submissionResult.memoryUsed != null ? `${(submissionResult.memoryUsed / 1024).toFixed(2)} MB` : "N/A"}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Detailed Console Output */}
+                {/* Detailed Console Output & LeetCode testcase list */}
                 {submissionResult.output && (
-                  <div className="bg-[#1e1e1e] border border-border rounded-lg p-4 font-mono text-xs text-foreground space-y-3">
-                    {submissionResult.output.compileOutput && (
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Compilation Logs</span>
-                        <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-400 whitespace-pre-wrap max-h-40">
+                  <div className="space-y-3">
+                    {/* Compilation logs if compilation error */}
+                    {submissionResult.status === "COMPILATION_ERROR" && submissionResult.output.compileOutput && (
+                      <div className="bg-[#1e1e1e] border border-rose-500/20 rounded-lg p-4 font-mono text-xs text-foreground space-y-2">
+                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Compilation Error</span>
+                        <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-400 whitespace-pre-wrap max-h-60">
                           {submissionResult.output.compileOutput}
                         </pre>
                       </div>
                     )}
 
-                    {submissionResult.output.stderr && (
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Standard Error (stderr)</span>
-                        <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-400 whitespace-pre-wrap max-h-40">
-                          {submissionResult.output.stderr}
-                        </pre>
-                      </div>
-                    )}
+                    {/* Case breakdown if no compilation error */}
+                    {submissionResult.status !== "COMPILATION_ERROR" && submissionResult.output.testCaseResults && submissionResult.output.testCaseResults.length > 0 ? (
+                      <div className="bg-[#1e1e1e] border border-border rounded-lg p-4 space-y-4">
+                        <Tabs defaultValue="test-results" className="w-full">
+                          <TabsList className="bg-black/30 border border-border/60 p-1 w-full justify-start overflow-x-auto h-auto flex-wrap gap-1">
+                            <TabsTrigger value="test-results" className="text-xs px-3 py-1.5 data-[state=active]:bg-zinc-800">
+                              Test Cases
+                            </TabsTrigger>
+                            {!submissionResult.isRunOnly && (
+                              <TabsTrigger value="submission-details" className="text-xs px-3 py-1.5 data-[state=active]:bg-zinc-800">
+                                Submission Verdict
+                              </TabsTrigger>
+                            )}
+                          </TabsList>
 
-                    {submissionResult.output.stdout && (
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Standard Output (stdout)</span>
-                        <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-emerald-300 whitespace-pre-wrap max-h-40">
-                          {submissionResult.output.stdout}
-                        </pre>
-                      </div>
-                    )}
+                          <TabsContent value="test-results" className="space-y-4 pt-2">
+                            <Tabs defaultValue="case-0" className="w-full">
+                              <div className="flex items-center justify-between border-b border-border/40 pb-2 mb-2 overflow-x-auto gap-2">
+                                <TabsList className="bg-transparent h-auto p-0 gap-1 justify-start">
+                                  {submissionResult.output.testCaseResults.map((tc: any, idx: number) => (
+                                    <TabsTrigger
+                                      key={idx}
+                                      value={`case-${idx}`}
+                                      className={`text-xs px-3 py-1 rounded-md border flex items-center gap-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:border-border ${
+                                        tc.passed
+                                          ? "border-emerald-500/20 text-emerald-500 data-[state=active]:text-emerald-400"
+                                          : "border-rose-500/20 text-rose-500 data-[state=active]:text-rose-400"
+                                      }`}
+                                    >
+                                      {tc.passed ? (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                      ) : (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                      )}
+                                      Case {idx + 1}
+                                    </TabsTrigger>
+                                  ))}
+                                </TabsList>
+                              </div>
 
-                    {submissionResult.output.expectedOutput && (
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expected Output</span>
-                        <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-muted-foreground whitespace-pre-wrap max-h-40">
-                          {submissionResult.output.expectedOutput}
-                        </pre>
+                              {submissionResult.output.testCaseResults.map((tc: any, idx: number) => (
+                                <TabsContent key={idx} value={`case-${idx}`} className="space-y-3 font-mono text-xs text-foreground">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Status</span>
+                                    <Badge className={tc.passed ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"}>
+                                      {tc.status}
+                                    </Badge>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Input</span>
+                                    <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-zinc-300 whitespace-pre-wrap">
+                                      {tc.input}
+                                    </pre>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Your Output</span>
+                                    <pre className={`p-3 bg-black/40 rounded border border-border/40 overflow-x-auto font-semibold whitespace-pre-wrap ${tc.passed ? "text-emerald-300" : "text-rose-400"}`}>
+                                      {tc.actualOutput || "(No output)"}
+                                    </pre>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expected Output</span>
+                                    <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-zinc-300 whitespace-pre-wrap">
+                                      {tc.expectedOutput}
+                                    </pre>
+                                  </div>
+
+                                  {tc.stderr && (
+                                    <div className="space-y-1">
+                                      <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Standard Error (stderr)</span>
+                                      <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-400 whitespace-pre-wrap">
+                                        {tc.stderr}
+                                      </pre>
+                                    </div>
+                                  )}
+                                </TabsContent>
+                              ))}
+                            </Tabs>
+                          </TabsContent>
+
+                          {!submissionResult.isRunOnly && (
+                            <TabsContent value="submission-details" className="pt-2">
+                              <div className="space-y-3 font-mono text-xs">
+                                {submissionResult.status === "ACCEPTED" ? (
+                                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 space-y-1">
+                                    <div className="font-bold text-sm">All Test Cases Passed! 🎉</div>
+                                    <div>Your code successfully beat all verification test cases inside the server runtime execution limits.</div>
+                                  </div>
+                                ) : (
+                                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 space-y-2">
+                                    <div className="font-bold text-sm flex items-center gap-2">
+                                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                                      Failed on testcase #{submissionResult.passedTests + 1}
+                                    </div>
+                                    <div>
+                                      The first failing test case execution result has been highlighted under Case {submissionResult.passedTests + 1} in the Test Cases tab.
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </TabsContent>
+                          )}
+                        </Tabs>
+                      </div>
+                    ) : (
+                      // Fallback simple logs if no array available
+                      <div className="bg-[#1e1e1e] border border-border rounded-lg p-4 font-mono text-xs text-foreground space-y-3">
+                        {submissionResult.output.stderr && (
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Standard Error (stderr)</span>
+                            <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-rose-400 whitespace-pre-wrap max-h-40">
+                              {submissionResult.output.stderr}
+                            </pre>
+                          </div>
+                        )}
+
+                        {submissionResult.output.stdout && (
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Standard Output (stdout)</span>
+                            <pre className="p-3 bg-black/40 rounded border border-border/40 overflow-x-auto text-emerald-300 whitespace-pre-wrap max-h-40">
+                              {submissionResult.output.stdout}
+                            </pre>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

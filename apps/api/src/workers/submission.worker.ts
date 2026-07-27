@@ -66,6 +66,7 @@ export const submissionWorker = new Worker(
     );
 
     try {
+      const testCaseResults: any[] = [];
       // ------------------------------------------------
       // Run every test case
       // ------------------------------------------------
@@ -86,6 +87,23 @@ export const submissionWorker = new Worker(
         );
 
         console.log(`Judge0 status: ${result.status.description}`);
+
+        const actualOutput = normalizeOutput(result.stdout ?? "");
+        const expectedOutput = normalizeOutput(testCase.expectedOutput);
+        const passed = actualOutput === expectedOutput && result.status.id === 3;
+
+        testCaseResults.push({
+          id: testCase.id,
+          input: testCase.input,
+          expectedOutput: testCase.expectedOutput,
+          actualOutput: result.stdout ?? "",
+          status: result.status.description,
+          compileOutput: result.compile_output,
+          stderr: result.stderr,
+          time: result.time,
+          memory: result.memory,
+          passed
+        });
 
         if (result.compile_output) {
           console.log("=== COMPILER OUTPUT ===");
@@ -129,6 +147,8 @@ export const submissionWorker = new Worker(
             result.compile_output,
             result.stderr,
             result.stdout,
+            undefined,
+            testCaseResults,
           );
 
           console.log(`Compilation error: ${submission.id}`);
@@ -151,6 +171,8 @@ export const submissionWorker = new Worker(
             result.compile_output,
             result.stderr,
             result.stdout,
+            undefined,
+            testCaseResults,
           );
 
           console.log(`Time limit exceeded: ${submission.id}`);
@@ -181,6 +203,8 @@ export const submissionWorker = new Worker(
             result.compile_output,
             result.stderr,
             result.stdout,
+            undefined,
+            testCaseResults,
           );
 
           console.log(`Runtime error: ${submission.id}`);
@@ -212,9 +236,7 @@ export const submissionWorker = new Worker(
         // Compare output ourselves
         // ------------------------------------------------
 
-        const actualOutput = normalizeOutput(result.stdout ?? "");
-
-        const expectedOutput = normalizeOutput(testCase.expectedOutput);
+        // Already normalized above for pushing to testCaseResults
 
         // ------------------------------------------------
         // Wrong Answer
@@ -232,6 +254,7 @@ export const submissionWorker = new Worker(
             result.stderr,
             result.stdout,
             testCase.expectedOutput,
+            testCaseResults,
           );
 
           if (submission.contestId) {
@@ -272,6 +295,8 @@ export const submissionWorker = new Worker(
         result.compile_output,
         result.stderr,
         result.stdout,
+        undefined,
+        testCaseResults,
       );
 
       // Award points only for contest submissions
@@ -335,6 +360,7 @@ async function updateFinalResult(
   stderr?: string | null,
   stdout?: string | null,
   expectedOutput?: string | null,
+  testCaseResults?: any[] | null,
 ) {
   await prismaClient.submission.update({
     where: {
@@ -358,6 +384,7 @@ async function updateFinalResult(
         stderr: stderr ?? null,
         stdout: stdout ?? null,
         expectedOutput: expectedOutput ?? null,
+        testCaseResults: testCaseResults ?? [],
       }),
       "EX",
       3600
