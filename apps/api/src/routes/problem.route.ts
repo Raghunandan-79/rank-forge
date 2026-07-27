@@ -8,6 +8,8 @@ import {
   createTestCaseController,
   getProblemBySlugController,
   getProblemsController,
+  getProblemAdminTestCasesController,
+  deleteTestCaseController,
 } from "../controllers/problem.controller";
 import { createSubmissionController, getProblemSubmissionsController } from "../controllers/submission.controller";
 
@@ -31,12 +33,27 @@ problemRouter.post(
   createProblemController,
 );
 
+problemRouter.get(
+  "/:slug/admin-test-cases",
+  authMiddleware,
+  roleMiddleware([UserRole.PROBLEM_SETTER, UserRole.ADMIN]),
+  getProblemAdminTestCasesController
+);
+
 problemRouter.post(
     "/:slug/test-cases",
     authMiddleware,
     csrfMiddleware,
     roleMiddleware([UserRole.PROBLEM_SETTER, UserRole.ADMIN]),
     createTestCaseController
+)
+
+problemRouter.delete(
+    "/:slug/test-cases/:id",
+    authMiddleware,
+    csrfMiddleware,
+    roleMiddleware([UserRole.PROBLEM_SETTER, UserRole.ADMIN]),
+    deleteTestCaseController
 )
 
 problemRouter.post(

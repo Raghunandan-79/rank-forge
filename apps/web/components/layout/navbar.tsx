@@ -41,6 +41,17 @@ export function Navbar() {
             >
               Contests
             </Link>
+
+            {user && (user.role === "ADMIN" || user.role === "PROBLEM_SETTER") && (
+              <Link
+                href="/admin"
+                className={`transition-colors hover:text-foreground/80 ${
+                  isLinkActive("/admin") ? "text-foreground font-semibold border-b-2 border-primary py-4 -mb-[18px]" : "text-muted-foreground"
+                }`}
+              >
+                Admin Panel
+              </Link>
+            )}
           </nav>
         </div>
 

@@ -126,3 +126,43 @@ export async function createTestCaseService(
 
   return testCase;
 }
+
+export async function getProblemAdminTestCasesService(slug: string) {
+  const problem = await prismaClient.problem.findUnique({
+    where: {
+      slug,
+    },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      testCases: {
+        select: {
+          id: true,
+          input: true,
+          expectedOutput: true,
+          isHidden: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      },
+    },
+  });
+
+  if (!problem) {
+    throw new AppError("Problem not found", 404);
+  }
+
+  return problem;
+}
+
+export async function deleteTestCaseService(id: string) {
+  const deleted = await prismaClient.testCase.delete({
+    where: {
+      id,
+    },
+  });
+  return deleted;
+}
