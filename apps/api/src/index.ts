@@ -17,12 +17,39 @@ app.disable("x-powered-by");
 
 app.use(helmet());
 
+const allowedOrigins = [
+  process.env.CORS_ORIGIN,
+  process.env.FRONTEND_URL,
+  "http://localhost:3001",
+].filter(Boolean) as string[];
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const isDev = process.env.NODE_ENV !== "production";
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        (isDev &&
+          (origin.startsWith("http://localhost:") ||
+            origin.endsWith(".devtunnels.ms") ||
+            origin.endsWith(".gitpod.io") ||
+            origin.endsWith(".githubpreview.dev")));
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`[CORS] Blocked request from origin: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   }),
 );
 
