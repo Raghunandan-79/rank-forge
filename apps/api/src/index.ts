@@ -11,6 +11,8 @@ import problemRouter from "./routes/problem.route";
 import submissionRouter from "./routes/submission.routes";
 import contestRouter from "./routes/contest.routes";
 import userRouter from "./routes/user.routes";
+import swaggerUi from "swagger-ui-express";
+import fs from "fs";
 
 const app = express();
 app.disable("x-powered-by");
@@ -59,6 +61,14 @@ app.use(
   }),
 );
 app.use(cookieParser());
+
+// Load OpenAPI specification
+const openapiDocument = JSON.parse(
+  fs.readFileSync(new URL("./openapi.json", import.meta.url), "utf8")
+);
+
+// Serve Swagger UI documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapiDocument));
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/problems", problemRouter);
